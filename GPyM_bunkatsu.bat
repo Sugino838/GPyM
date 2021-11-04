@@ -1,0 +1,10 @@
+@echo off
+if exist BUNKATSU_ONLY.py (
+rem
+) else (
+echo %CD%Ç…ÇÕBUNKATSU_ONLY.pyÇ™ë∂ç›ÇµÇ‹ÇπÇÒ
+set /p __=
+exit /b
+)
+echo on
+py BUNKATSU_ONLY.py
