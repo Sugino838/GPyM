@@ -13,6 +13,7 @@ from multiprocessing import Process, Lock, Manager,Value
 import windowModule
 from enum import Enum,auto
 from concurrent.futures import ThreadPoolExecutor
+import pyperclip
 
 class State(Enum):
     READY=auto()
@@ -22,6 +23,10 @@ class State(Enum):
     BUNKATSU=auto()
     ALLEND=auto()
 
+def set_dirpath(datadir,tempdir):
+    global _datadir,_tempdir
+    _datadir=datadir
+    _tempdir=tempdir
 
 
 _file_label=""
@@ -32,10 +37,12 @@ graph_renew_interval=1
 __state=State.READY
 
 def measure_start(start,update,end,on_command,bunkatsu):
+
+    _copy_prefilename()#前回のファイル名をクリップボードにコピー
     global __state
-    
     global _filename,_datelabel
-    _filename,_datelabel,_=inp.get_filename()
+    _filename,_datelabel,_filename_withoutdate=inp.get_filename()
+    _set_prefilename(_filename_withoutdate)
 
     if start is not None:
         __state=State.START
@@ -82,10 +89,6 @@ def measure_start(start,update,end,on_command,bunkatsu):
 
 
 
-def set_dirpath(datadir,tempdir):
-    global _datadir,_tempdir
-    _datadir=datadir
-    _tempdir=tempdir
 
 def get_tempdir():
     return _tempdir
@@ -338,3 +341,15 @@ def plot_data(x,y,color="black"):#データをグラフにプロット
     _share_list.append(data)# プロセス間で共有するリストにデータを追加
     _lock_process.release()#ロック解除
     
+
+def _set_prefilename(filename):
+    path=_tempdir+"\\prefilename"
+    with open(path,mode="w",encoding="utf-8") as f:
+        f.write(filename)
+
+def _copy_prefilename():
+    path=_tempdir+"\\prefilename"
+    if os.path.isfile(path):
+        with open(path,mode="r",encoding="utf-8") as f:
+            prefilename=f.read()
+            pyperclip.copy(prefilename)
