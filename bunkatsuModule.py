@@ -205,10 +205,15 @@ def file_open(filepath):
     while True:
         line_raw=file.readline()
         line = line_raw.strip() #前後空白削除
-        line = line.replace('\n','') #末尾の\nの削除
 
         if line == "": #空なら終了
             break
+
+        line = line.replace('\n','') #末尾の\nの削除
+
+        if line == "": #空行なら次の行へ
+            continue
+
         try:
             array_string = line.split(",") #","で分割して配列にする
             array_float=[float(s) for s in array_string] #文字列からfloatに変換

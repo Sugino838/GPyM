@@ -158,7 +158,7 @@ def set_calibration_file(filename_calb): #プラチナ温度計の抵抗値を�
 
 
     if not os.path.isfile(filename_calb):
-        input(os.getcwd()+"で"+filename_calb+"にアクセスしようとしましたが存在しませんでした")
+        input(os.getcwd()+"で"+filename_calb+"にアクセスしようとしましたが存在しませんでした. キャリブレーションファイルはマクロと同じフォルダに置いてください")
         sys.exit()
 
 
@@ -217,6 +217,8 @@ def set_label(label):
     if __state!=State.START:
         print("WARNING : "+sys._getframe().f_code.co_name+"はstart関数内で用いてください")
     global _file_label
+    if not label[-1]=="\n":#末尾に改行コードがついていなければくっつける
+        label+="\n"
     _file_label=label
 
 def _set_file():#ファイルの作成,準備
