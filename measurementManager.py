@@ -23,13 +23,13 @@ class State(Enum):
     BUNKATSU=auto()
     ALLEND=auto()
 
-def set_dirpath(datadir,tempdir):
-    global _datadir,_tempdir
+def set_variables(datadir,tempdir,file_label):
+    global _datadir,_tempdir,_file_label
     _datadir=datadir
     _tempdir=tempdir
+    _file_label=file_label
 
 
-_file_label=""
 graph_renew_interval=1
 
 
@@ -222,7 +222,7 @@ def set_label(label):
     global _file_label
     if not label[-1]=="\n":#末尾に改行コードがついていなければくっつける
         label+="\n"
-    _file_label=label
+    _file_label=label+_file_label+"\n"
 
 def _set_file():#ファイルの作成,準備
     

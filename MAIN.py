@@ -39,7 +39,6 @@ def main():
         f.write(defpath)
     
     
-    mm.set_dirpath(datadir=datadir,tempdir=tempdir)
         
         
     path_premacroname=TEMPDIR+"\\premacroname"
@@ -110,7 +109,19 @@ def main():
         print(target.__name__+".py : bunkatsu関数には1つの引数が必要です")
         UNDIFINE_ERROR=True
                
-        
+
+    
+    if issubclass(target.Data,tuple):
+        data_label=""
+        count=1
+        for s in target.Data._fields:
+            data_label+="["+str(count)+"]"+s+", "
+            count+=1
+        data_label=data_label[:-2]
+    else:
+        print("Dataをnamedtupleで定義してください")
+        UNDIFINE_ERROR=True
+
     if UNDIFINE_ERROR:
         input("エラーのため終了します...")
         sys.exit()
@@ -119,12 +130,14 @@ def main():
         UNDIFINE_WARNING=UNDIFINE_WARNING[:-2]
         print("UNDEFINED FUNCTION : "+UNDIFINE_WARNING)
 
+    mm.set_variables(datadir=datadir,tempdir=tempdir,file_label=data_label)
+
     os.chdir(macrodir)#カレントディレクトリを測定マクロ側に変更
 
     mm.measure_start(start=target.start,update=target.update,end=target.end,on_command=target.on_command,bunkatsu=target.bunkatsu)#測定開始
     
 
-
+    
 
 
 if __name__=="__main__":
