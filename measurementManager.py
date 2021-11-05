@@ -38,11 +38,11 @@ __state=State.READY
 
 def measure_start(start,update,end,on_command,bunkatsu):
 
-    _copy_prefilename()#前回のファイル名をクリップボードにコピー
+    
     global __state
     global _filename,_datelabel
     _filename,_datelabel,_filename_withoutdate=inp.get_filename()
-    _set_prefilename(_filename_withoutdate)
+    _copy_filename(_filename_withoutdate)
 
     if start is not None:
         __state=State.START
@@ -342,14 +342,5 @@ def plot_data(x,y,color="black"):#データをグラフにプロット
     _lock_process.release()#ロック解除
     
 
-def _set_prefilename(filename):
-    path=_tempdir+"\\prefilename"
-    with open(path,mode="w",encoding="utf-8") as f:
-        f.write(filename)
-
-def _copy_prefilename():
-    path=_tempdir+"\\prefilename"
-    if os.path.isfile(path):
-        with open(path,mode="r",encoding="utf-8") as f:
-            prefilename=f.read()
-            pyperclip.copy(prefilename)
+def _copy_filename(filename):
+    pyperclip.copy(filename)
