@@ -226,13 +226,7 @@ def _set_file():#ファイルの作成,準備
         sys.exit()
     
 
-    # dirpath=_datadir +"\\"+ _filename
-
-    # if os.path.isdir(dirpath):
-    #     input(_filename+"というフォルダは既に存在しています. 削除するか1分お待ちください")
-    #     sys.exit()
-    # os.mkdir(dirpath)
-
+    
     global _filepath
     _filepath=_datadir+"\\"+ _filename+".txt"
         

@@ -265,8 +265,8 @@ def create_file(filepath,data,label=""):
 
 
     dirpath = os.path.dirname(filepath)
-    if not os.path.isdir(dirpath):
-        os.makedirs(dirpath)
+    os.makedirs(dirpath, exist_ok=True)
+
 
     if os.path.isfile(filepath):
         input("bunkatsuError : "+filepath+"は既に存在しています.削除してからやり直してください.")
