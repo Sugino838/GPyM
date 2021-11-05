@@ -83,8 +83,8 @@ def read_defdir(dirpath=None,filename=None):
             line=line.rstrip("\\") #パスの最後尾に"\"があれば削除
             if "DATADIR=" in line:
                 datadir=line[8:] #"DATADIR="の後ろの文字列を取得
-            if "TEMPDIR=" in line:
-                tempdir=line[8:]
+            if "TMPDIR=" in line:
+                tempdir=line[7:]
             if "MACRODIR=" in line:
                 macrodir=line[9:]
                  
@@ -103,13 +103,13 @@ def read_defdir(dirpath=None,filename=None):
             datadir=os.path.dirname(defpath)+"/"+datadir
 
         if not os.path.isdir(datadir):#データフォルダが存在しなければエラー
-            input("定義ファイルERROR : "+datadir+"は存在しないフォルダです")
+            input("定義ファイルERROR : "+datadir+"は存在しないフォルダですがDATADIRとして設定されています")
             sys.exit()
 
 
     if tempdir==None:
         #最後まで見てTEMPDIRが無ければエラー表示
-        input("ERROR : 定義ファイルにTEMPDIRの定義がありません")
+        input("ERROR : 定義ファイルにTMPDIRの定義がありません")
         sys.exit()
     else:
 
@@ -117,7 +117,7 @@ def read_defdir(dirpath=None,filename=None):
             tempdir=os.path.dirname(defpath)+"/"+tempdir
 
         if not os.path.isdir(tempdir):#データフォルダが存在しなければエラー
-            input("定義ファイルERROR : "+tempdir+"は存在しないフォルダです")
+            input("定義ファイルERROR : "+tempdir+"は存在しないフォルダですがTMPDIRとして設定されています")
             sys.exit()
 
 
@@ -128,7 +128,7 @@ def read_defdir(dirpath=None,filename=None):
             macrodir=os.path.dirname(defpath)+"/"+macrodir
 
         if not os.path.isdir(macrodir):#マクロフォルダが存在しなければ警告
-            print("定義ファイルWARING : "+macrodir+"は存在しないフォルダです")
+            print("定義ファイルWARING : "+macrodir+"は存在しないフォルダですがMACRODIRとして設定されています")
             macrodir=None
 
 
