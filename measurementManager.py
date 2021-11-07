@@ -24,10 +24,10 @@ class State(Enum):
     ALLEND=auto()
 
 def set_variables(datadir,tempdir,file_label):
-    global _datadir,_tempdir,_file_label
+    global _datadir,_tempdir,_data_label
     _datadir=datadir
     _tempdir=tempdir
-    _file_label=file_label
+    _data_label=file_label
 
 
 graph_renew_interval=1
@@ -215,14 +215,14 @@ def calibration(x):
         raise
     return y
 
-
+__user_label=""
 def set_label(label):
     if __state!=State.START:
         print("WARNING : "+sys._getframe().f_code.co_name+"はstart関数内で用いてください")
-    global _file_label
+    global __user_label
     if not label[-1]=="\n":#末尾に改行コードがついていなければくっつける
         label+="\n"
-    _file_label=label+_file_label+"\n"
+    __user_label=__user_label+label
 
 def _set_file():#ファイルの作成,準備
     
@@ -237,7 +237,9 @@ def _set_file():#ファイルの作成,準備
         
     global _savefile
     _savefile = open(_filepath, 'x',encoding="utf-8") #ファイル作成
-    _savefile.write(_file_label) #測定データのラベル書き込み
+
+    file_label=__user_label+_data_label+"\n"
+    _savefile.write(file_label) #測定データのラベル書き込み
 
     _savefile.flush() #書き込みを反映させる
 
