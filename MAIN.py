@@ -130,7 +130,7 @@ def main():
         UNDIFINE_WARNING=UNDIFINE_WARNING[:-2]
         print("UNDEFINED FUNCTION : "+UNDIFINE_WARNING)
 
-    mm.set_variables(datadir=datadir,tempdir=tempdir,file_label=data_label)
+    mm._set_variables(datadir=datadir,tempdir=tempdir,file_label=data_label)
 
     os.chdir(macrodir)#カレントディレクトリを測定マクロ側に変更
 

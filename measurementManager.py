@@ -23,7 +23,7 @@ class State(Enum):
     BUNKATSU=auto()
     ALLEND=auto()
 
-def set_variables(datadir,tempdir,file_label):
+def _set_variables(datadir,tempdir,file_label):
     global _datadir,_tempdir,_data_label
     _datadir=datadir
     _tempdir=tempdir
@@ -159,7 +159,6 @@ def _bunkatsu(bunkatsu):
 
 def set_calibration_file(filename_calb): #プラチナ温度計の抵抗値を温度に変換するためのファイルを読み込み
 
-
     if not os.path.isfile(filename_calb):
         input(os.getcwd()+"で"+filename_calb+"にアクセスしようとしましたが存在しませんでした. キャリブレーションファイルはマクロと同じフォルダに置いてください")
         sys.exit()
@@ -196,21 +195,22 @@ def calibration(x):
     """
     プラチナ温度計の抵抗値xに対応する温度yを線形補間で返す
     """
+
     try:
         y=_interpolate_func(x)
     except ValueError as e:
         print(util.get_error_info(e))
-        input("Keithleyから入力されるデータがキャリブレーションファイルのデータ範囲外です")
+        input("Error : "+sys._getframe().f_code.co_name+" : Keithleyから入力されるデータがキャリブレーションファイルのデータ範囲外になっている可能性があります")
         print(e)
         raise
     except NameError as e:
         print(util.get_error_info(e))
-        input("キャリブレーションファイルが読み込まれていません")
+        input("Error : "+sys._getframe().f_code.co_name+" : キャリブレーションファイルが読み込まれていない可能性があります")
         print(e)
         raise
     except Exception as e:
         print(util.get_error_info(e))    
-        input("calibration:予期せぬエラーが発生しました") 
+        input("Error : "+sys._getframe().f_code.co_name+" : 予期せぬエラーが発生しました") 
         print(e)
         raise
     return y
@@ -270,7 +270,7 @@ def set_logscale(xlog=False,ylog=False):#グラフのlogスケール設定
     if __state!=State.START:
         print("WARNING : "+sys._getframe().f_code.co_name+"はstart関数内で用いてください")
     if type(xlog) is not bool or type(ylog) is not bool:
-        input("Error: set_logscaleの引数はTrueかFalseです")
+        input("Error : "+sys._getframe().f_code.co_name+" : 引数はTrueかFalseです")
         sys.exit()
     global _xlog,_ylog
     _xlog=xlog
