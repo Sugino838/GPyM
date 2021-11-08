@@ -1,7 +1,9 @@
 import time
 import pyvisa
-import sys
-import utilityModule
+import utilityModule as util
+
+
+logger=util.mklogger(__name__)
 
 def get_instrument(address):
     """
@@ -25,30 +27,17 @@ def get_instrument(address):
         #機器にアクセス. GPIBがつながってないとここでエラーが出る
         inst = rm.open_resource(address) 
     except pyvisa.errors.VisaIOError as e: #エラーが出たらここを実行
-        print(utilityModule.get_error_info(e))    
-        input("ERROR : GPIBケーブルが抜けている可能性があります")
-        print(e)
-        raise
+        raise util.create_error("GPIBケーブルが抜けている可能性があります",logger)
     except Exception as e: #エラーの種類に応じて場合分け
-        print(utilityModule.get_error_info(e))    
-        input("予期せぬエラーが発生しました") 
-        print(e)
-        raise
-
+        raise util.create_error("予期せぬエラーが発生しました",logger,e)
 
     try:
         #IDNコマンドで機器と通信. GPIB番号に機器がないとここでエラー
         idn=inst.query('*IDN?')
     except pyvisa.errors.VisaIOError as e:
-        print(utilityModule.get_error_info(e))    
-        input(address+"が'IDN?'コマンドに応答しません. 設定されているGPIBの番号が間違っている可能性があります")
-        print(e)
-        raise
+        raise util.create_error(address+"が'IDN?'コマンドに応答しません. 設定されているGPIBの番号が間違っている可能性があります",logger,e)
     except Exception as e:
-        print(utilityModule.get_error_info(e))    
-        input("予期せぬエラーが発生しました") 
-        print(e)
-        raise
+        raise util.create_error("予期せぬエラーが発生しました",logger,e)
 
     #問題が無ければinstを返す
     return inst
@@ -58,11 +47,8 @@ def get_volt(instrument):
     try:
         volt= instrument.query('VOLT?')
     except Exception as e:
-        print(utilityModule.get_error_info(e))    
-        input("機器が'VOLT?'に応答しません")
-        print(e)
-        raise
-    
+        raise util.create_error("機器が'VOLT?'に応答しません",logger,e)
+
     return volt
     
 
@@ -72,10 +58,7 @@ def command_check(inst,*commands):
         try:
             text=inst.query(command)
         except Exception as e:
-            input("GPIB"+str(inst.primary_address)+"番への'"+command+"'のコマンドでエラーが発生しました")
-            print(utilityModule.get_error_info(e))   
-            raise
-        
+            raise util.create_error("GPIB"+str(inst.primary_address)+"番への'"+command+"'のコマンドでエラーが発生しました",logger,e)
 
 
 def main():

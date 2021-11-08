@@ -14,6 +14,8 @@ kernel32 = ctypes.windll.kernel32
 mode=0xFDB7 #簡易編集モードとENABLE_WINDOW_INPUT と ENABLE_VIRTUAL_TERMINAL_INPUT をOFFに
 kernel32.SetConsoleMode(kernel32.GetStdHandle(-10), mode)
 
+logger=util.mklogger(__name__)
+
 def main():
 
     tk = Tk()
@@ -70,11 +72,10 @@ def get_bunkatsu_func(macropath):
     import mod 
 
     if not hasattr(mod, 'bunkatsu'):
-        input(mod.__name__+".py : マクロにはbunkatsu関数を定義する必要があります")
-        sys.exit()
+        raise util.create_error(mod.__name__+".pyにはbunkatsu関数を定義する必要があります",logger)
     elif mod.bunkatsu.__code__.co_argcount!=1:
-        input(mod.__name__+".py : bunkatsu関数には1つの引数が必要です")
-        sys.exit()
+        raise util.create_error(mod.__name__+".bunkatsuには1つの引数が必要です",logger)
+
 
     print("WARNING : グローバル変数など, グローバルエリアに書いた処理は無視されます(仕様です)") 
     return mod.bunkatsu

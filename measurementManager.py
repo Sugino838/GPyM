@@ -14,6 +14,7 @@ import windowModule
 from enum import Enum,auto
 from concurrent.futures import ThreadPoolExecutor
 import pyperclip
+from utilityModule import GPyMException
 
 class State(Enum):
     READY=auto()
@@ -32,7 +33,7 @@ def _set_variables(datadir,tempdir,file_label):
 
 graph_renew_interval=1
 
-
+__logger=util.mklogger(__name__)
 
 __state=State.READY
 
@@ -57,7 +58,9 @@ def measure_start(start,update,end,on_command,bunkatsu):
     _lock_thread=threading.Lock()
 
     if on_command is not None:
-        threading.Thread(target=_wait_command_input,args=(on_command,_lock_thread)).start()
+        cmthr=threading.Thread(target=_wait_command_input,args=(on_command,_lock_thread))
+        cmthr.setDaemon(True)
+        cmthr.start()
 
     print("measuring start...")
 
@@ -98,6 +101,9 @@ def finish():
     
 
 def _end():
+    """
+    終了処理. コンソールからの終了と､グラフウィンドウを閉じたときの終了の2つを実行できるようにスレッドを用いる
+    """
     def wait_enter():
         nonlocal endflag
         input("enter and close window...") 
@@ -160,8 +166,7 @@ def _bunkatsu(bunkatsu):
 def set_calibration_file(filename_calb): #プラチナ温度計の抵抗値を温度に変換するためのファイルを読み込み
 
     if not os.path.isfile(filename_calb):
-        input(os.getcwd()+"で"+filename_calb+"にアクセスしようとしましたが存在しませんでした. キャリブレーションファイルはマクロと同じフォルダに置いてください")
-        sys.exit()
+        raise util.create_error(os.getcwd()+"で'"+filename_calb+"'にアクセスしようとしましたが存在しませんでした. キャリブレーションファイルはマクロと同じフォルダに置いてください",__logger)
 
 
     global _interpolate_func
@@ -199,26 +204,17 @@ def calibration(x):
     try:
         y=_interpolate_func(x)
     except ValueError as e:
-        print(util.get_error_info(e))
-        input("Error : "+sys._getframe().f_code.co_name+" : Keithleyから入力されるデータがキャリブレーションファイルのデータ範囲外になっている可能性があります")
-        print(e)
-        raise
+        raise util.create_error("Keithleyから入力されるデータがキャリブレーションファイルのデータ範囲外になっている可能性があります",__logger,e)
     except NameError as e:
-        print(util.get_error_info(e))
-        input("Error : "+sys._getframe().f_code.co_name+" : キャリブレーションファイルが読み込まれていない可能性があります")
-        print(e)
-        raise
+        raise util.create_error("キャリブレーションファイルが読み込まれていない可能性があります",__logger,e)
     except Exception as e:
-        print(util.get_error_info(e))    
-        input("Error : "+sys._getframe().f_code.co_name+" : 予期せぬエラーが発生しました") 
-        print(e)
-        raise
+        raise util.create_error("予期せぬエラーが発生しました",__logger,e)
     return y
 
 __user_label=""
 def set_label(label):
     if __state!=State.START:
-        print("WARNING : "+sys._getframe().f_code.co_name+"はstart関数内で用いてください")
+        __logger.warning(sys._getframe().f_code.co_name+"はstart関数内で用いてください")
     global __user_label
     if not label[-1]=="\n":#末尾に改行コードがついていなければくっつける
         label+="\n"
@@ -227,9 +223,7 @@ def set_label(label):
 def _set_file():#ファイルの作成,準備
     
     if not os.path.isdir(_datadir):#フォルダの存在確認
-        input(_datadir+"のフォルダにアクセス使用としましたが､存在しませんでした")   
-        sys.exit()
-    
+        raise util.create_error(_datadir+"のフォルダにアクセスしようとしましたが､存在しませんでした",__logger)
 
     
     global _filepath
@@ -268,10 +262,9 @@ _xlog=False
 _ylog=False
 def set_logscale(xlog=False,ylog=False):#グラフのlogスケール設定
     if __state!=State.START:
-        print("WARNING : "+sys._getframe().f_code.co_name+"はstart関数内で用いてください")
+        __logger.warning(sys._getframe().f_code.co_name+"はstart関数内で用いてください")
     if type(xlog) is not bool or type(ylog) is not bool:
-        input("Error : "+sys._getframe().f_code.co_name+" : 引数はTrueかFalseです")
-        sys.exit()
+        raise util.create_error(sys._getframe().f_code.co_name+"の引数はTrueかFalseです",__logger)
     global _xlog,_ylog
     _xlog=xlog
     _ylog=ylog
@@ -283,8 +276,8 @@ def set_logscale(xlog=False,ylog=False):#グラフのlogスケール設定
     
 def rename_file():#ファイル名変更
     if __state!=State.END:
-        input("Error : "+sys._getframe().f_code.co_name+"はend関数内で用いてください")
-        sys.exit()
+        raise util.create_error(sys._getframe().f_code.co_name+"はend関数内で用いてください",__logger)
+
 
 
     _,_,new_filename=inp.get_filename(text="ファイル名を変更する場合は入力してください > ")
@@ -317,7 +310,7 @@ def rename_file():#ファイル名変更
 
 def save_data(data):#データ保存
     if __state!=State.UPDATE and __state!=State.END:
-        print("WARNING : "+sys._getframe().f_code.co_name+"はupdateもしくはend関数内で用いてください")
+        __logger.warning(sys._getframe().f_code.co_name+"はupdateもしくはend関数内で用いてください")
     
     if type(data) is str:#文字列を入力したときにも一応対応
         _savefile.write(data)#書き込み
@@ -337,7 +330,7 @@ def save_data(data):#データ保存
 
 def plot_data(x,y,color="black"):#データをグラフにプロット
     if __state!=State.UPDATE:
-        print("WARNING : "+sys._getframe().f_code.co_name+"はstartもしくはupdate関数内で用いてください")
+        __logger.warning(sys._getframe().f_code.co_name+"はstartもしくはupdate関数内で用いてください")
     data=(x,y,color)
     _lock_process.acquire() #   ロックをかけて別プロセスからアクセスできないようにする
     _share_list.append(data)# プロセス間で共有するリストにデータを追加

@@ -9,6 +9,7 @@ import utilityModule as util
 from importlib.util import spec_from_loader, module_from_spec
 from importlib.machinery import SourceFileLoader 
 import ctypes
+from utilityModule import GPyMException
 
 #簡易編集モードをOFFにするためのおまじない
 kernel32 = ctypes.windll.kernel32
@@ -17,6 +18,7 @@ kernel32.SetConsoleMode(kernel32.GetStdHandle(-10), mode)
 
 
 TEMPDIR=None#TEMPフォルダーのパス
+logger=util.mklogger(__name__)
 
 def main():
     #sys.path.append(os.path.dirname(sys.executable))
@@ -78,35 +80,35 @@ def main():
         target.start=None
         UNDIFINE_WARNING+="start, "
     elif target.start.__code__.co_argcount!=0:
-        print(target.__name__+".py : start関数には引数を設定してはいけません")
+        logger.error(target.__name__+".startには引数を設定してはいけません")
         UNDIFINE_ERROR=True
 
     if not hasattr(target, 'update'):
-        print(target.__name__+".py : マクロにはupdate関数を定義する必要があります")
+        logger.error(target.__name__+".pyの中でupdateを定義する必要があります")
         UNDIFINE_ERROR=True
     elif target.update.__code__.co_argcount!=0:
-        print(target.__name__+".py : update関数には引数を設定してはいけません")
+        logger.error(target.__name__+".updateには引数を設定してはいけません")
         UNDIFINE_ERROR=True
 
     if not hasattr(target, 'end'):
         target.end=None
         UNDIFINE_WARNING+="end, "
     elif target.end.__code__.co_argcount!=0:
-        print(target.__name__+".py : end関数には引数を設定してはいけません")
+        logger.error(target.__name__+".endには引数を設定してはいけません")
         UNDIFINE_ERROR=True
 
     if not hasattr(target, 'on_command'):
         target.on_command=None
         UNDIFINE_WARNING+="on_command, "
     elif target.on_command.__code__.co_argcount!=1:
-        print(target.__name__+".py : on_command関数には1つの引数が必要です")
+        logger.error(target.__name__+".on_commandには引数を設定してはいけません")
         UNDIFINE_ERROR=True
 
     if not hasattr(target, 'bunkatsu'):
         target.bunkatsu=None
         UNDIFINE_WARNING+="bunkatsu, "
     elif target.bunkatsu.__code__.co_argcount!=1:
-        print(target.__name__+".py : bunkatsu関数には1つの引数が必要です")
+        logger.error(target.__name__+".bunkatsuには引数を設定してはいけません")
         UNDIFINE_ERROR=True
                
 
@@ -119,7 +121,7 @@ def main():
             count+=1
         data_label=data_label[:-2]
     else:
-        print("Dataをnamedtupleで定義してください")
+        logger.error("Dataをnamedtupleで定義してください")
         UNDIFINE_ERROR=True
 
     if UNDIFINE_ERROR:
@@ -149,10 +151,9 @@ if __name__=="__main__":
         main()
     except Exception as e:
         import traceback
-        traceback.print_exc()#エラー表示
 
 
-        #以下, エラーをログファイルに書き出す処理
+        #エラーをログファイルに書き出す処理
         loglist=list(traceback.TracebackException.from_exception(e).format())
         log=""
         for l in loglist:
@@ -179,4 +180,7 @@ if __name__=="__main__":
             for i in range(num):
                 f.write(prelog[i])
 
-        input("__Error__")#コンソールウィンドウが落ちないように入力待ちを入れる
+
+        if type(e) is not GPyMException:#自分で設定したエラー以外はコンソールウィンドウにエラーログを表示
+            traceback.print_exc()#エラー表示
+            input("__Error__")#コンソールウィンドウが落ちないように入力待ちを入れる

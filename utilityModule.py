@@ -1,19 +1,7 @@
 import sys
 import os
-import ctypes
-from collections import namedtuple
-import os
-import threading
-import math
-import matplotlib.pyplot as plt
-import inputModule
-from scipy import interpolate
-import msvcrt
-import time 
-import utilityModule as util
 from chardet.universaldetector import UniversalDetector
-import matplotlib.style as mplstyle
-from collections import deque
+from logging import getLogger,DEBUG,WARNING,StreamHandler,Formatter
 
 def get_error_info(e):
     """
@@ -39,3 +27,34 @@ def get_encode_type( file_path ) :#テキストファイルの文字コードを
 
 
 
+
+
+def mklogger(logname,level=WARNING):
+    logger = getLogger(logname)
+    logger.setLevel(level)
+    
+    handler = StreamHandler()
+    formatter = Formatter('[%(asctime)s] [%(levelname)8s] [%(filename)s:%(lineno)s %(funcName)s]  %(message)s')
+    handler.setFormatter(formatter)
+
+    logger.addHandler(handler)
+
+    return logger
+
+    
+class GPyMException(Exception):
+    pass
+
+
+def create_error(errorlog,logger,e=None):
+    if e is not None:
+        print(get_error_info(e))
+        print(e)
+    
+    logger.error(errorlog,stacklevel=2)
+    input()
+
+    if e is not None:
+        return 
+    else:
+        return GPyMException(errorlog)

@@ -8,7 +8,7 @@ import math
 
 
 
-
+__logger=util.mklogger(__name__)
 
 def heating_cooling_split(data,T_index,sample_num=150,threshold=0.7):
 
@@ -38,7 +38,7 @@ def heating_cooling_split(data,T_index,sample_num=150,threshold=0.7):
     """
 
     if threshold<0 or threshold>1:
-        input("bunkatsuError: thresholdの値は0~1でお願いします") 
+        raise util.create_error("thresholdの値は0~1にしてください",__logger)
 
     sample_num_hc=120#判定に使うサンプル数
     threshold=sample_num_hc*0.7#分割の閾値
@@ -47,7 +47,7 @@ def heating_cooling_split(data,T_index,sample_num=150,threshold=0.7):
     count=0
     for i in range(sample_num_hc):
         if count>=len(data)-1:
-            print("bunkatsu WARNING : データ数が少なすぎるかsample数が多すぎます. 必要最小データ数はheating_cooling_splitの引数から設定できます" )
+            __logger.warning("データ数が少なすぎるかsample数が多すぎます. 必要最小データ数は"+sys._getframe().f_code.co_name+"の引数から設定できます")
             return [data]
 
         displacement=1 if (data[count+1][T_index]-data[count][T_index])>0 else -1 #温度が上昇していれば1, いなければ-1をサンプルにつめる
@@ -224,8 +224,12 @@ def file_open(filepath):
             num_label+=1
 
     file.close()
-
+    
     print("非データ行 : ",num_label,", データ行 : " ,num_data)
+
+    if num_data==0:
+        raise util.create_error("データ行が0行です. 読み取りに失敗しました.",__logger)
+
     return data,filename,dirpath,label
 
 
@@ -274,8 +278,7 @@ def create_file(filepath,data,label=""):
 
 
     if os.path.isfile(filepath):
-        input("bunkatsuError : "+filepath+"は既に存在しています.削除してからやり直してください.")
-        sys.exit()
+        raise util.create_error(filepath+"は既に存在しています.削除してからやり直してください.",__logger)
 
     with open(filepath,'x',encoding="utf-8") as f:
         f.write(label)
