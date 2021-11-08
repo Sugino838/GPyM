@@ -55,6 +55,6 @@ def create_error(errorlog,logger,e=None):
     input()
 
     if e is not None:
-        return 
+        return #エラーが既に発生している場合は何も返さないことで現在発生しているエラーをログに出せる
     else:
         return GPyMException(errorlog)

@@ -104,13 +104,13 @@ def _end():
     """
     終了処理. コンソールからの終了と､グラフウィンドウを閉じたときの終了の2つを実行できるようにスレッドを用いる
     """
-    def wait_enter():
-        nonlocal endflag
-        input("enter and close window...") 
+    def wait_enter():#コンソール側の終了
+        nonlocal endflag #nonlocalを使うとクロージャーになる
+        input("enter and close window...") #エンターを押したら次へ進める
         endflag=True
-    def wait_closewindow():
+    def wait_closewindow():#グラフウィンドウからの終了
         nonlocal endflag
-        _window_process.join()
+        _window_process.join()#_window_processの終了待ち
         endflag=True
 
     endflag=False
@@ -138,7 +138,6 @@ def _end():
 
         
 def _wait_command_input(on_command,_lock_thread):#終了コマンドの入力待ち, これは別スレッドで動かす
-    print("enter 'finish' and finish measurement... ")
     while True:
 
         isf=_isfinish.value
