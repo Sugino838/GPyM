@@ -45,8 +45,9 @@ def measure_start(start,update,end,on_command,bunkatsu):
     
     global __state
     global _filename,_datelabel
+    _copy_prefilename()
     _filename,_datelabel,_filename_withoutdate=inp.get_filename()
-    _copy_filename(_filename_withoutdate)
+    _set_filename(_filename_withoutdate)
 
     if start is not None:
         __state=State.START
@@ -340,10 +341,23 @@ def plot_data(x,y,color="black"):#データをグラフにプロット
     _lock_process.release()#ロック解除
     
 
-def _copy_filename(filename):
-    pyperclip.copy(filename)
 
 
 def set_flow_plotwindow(xwidth,yauto=False,stock_num=300):
     global __flowwindow_parameter
     __flowwindow_parameter=(xwidth,yauto,stock_num)
+
+
+def _copy_prefilename():
+    path=_tempdir+"\\prefilename"
+    if os.path.isfile(path):
+        with open(path,mode="r",encoding=util.get_encode_type(path)) as f:
+            prefilename=f.read()
+            pyperclip.copy(prefilename)
+
+def _set_filename(filename):
+    path=_tempdir+"\\prefilename"
+    with open(path,mode="w",encoding="utf-8") as f:
+        f.write(filename)
+
+    
