@@ -21,11 +21,14 @@ import numpy as np
 
 _isfinish=None
 
-def exec(share_list,isfinish,lock,xlog,ylog,graph_renew_interval):#別プロセスで最初に実行される場所
+def exec(share_list,isfinish,lock,xlog,ylog,graph_renew_interval,__flowwindow_parameter):#別プロセスで最初に実行される場所
     global _isfinish
     _isfinish=isfinish
 
-    PlotWindow(share_list,lock,xlog,ylog,graph_renew_interval).run()#インスタンス作成, 実行
+    if __flowwindow_parameter is None:
+        PlotWindow(share_list,lock,xlog,ylog,graph_renew_interval).run()#インスタンス作成, 実行
+    else:
+        FlowPlotWindow(share_list,lock,xlog,ylog,graph_renew_interval,__flowwindow_parameter).run()
 
 
    
@@ -101,3 +104,43 @@ class PlotWindow():
             plt.xscale('log')#横軸をlogスケールに
         if ylog:
             plt.yscale('log')#縦軸をlogスケールに
+
+from collections import deque
+class FlowPlotWindow(PlotWindow):
+
+    artistlist=[]
+    count=0
+    def __init__(self,share_list,lock,xlog,ylog,graph_renew_interval,__flowwindow_parameter):#コンストラクタ
+        self.share_list=share_list
+        self.lock=lock
+        self.xlog=xlog
+        self.ylog=ylog
+        self.interval=graph_renew_interval
+        (self.xwidth,self.yauto,self.stock_num)=__flowwindow_parameter
+        for i in range(self.stock_num):
+            self.artistlist.append(None)
+
+
+
+    def renew_window(self):#グラフの更新
+        self.lock.acquire()#共有リストにロックをかける
+        #share_listのコピーを作成.(temp=share_listにすると参照になってしまうのでdel self.share_list[:]でtempも消えてしまう)
+        temp=self.share_list[:] #[i for i in self.share_list]はかなり重い
+        del self.share_list[:]#共有リストは削除
+        self.lock.release()#ロック解除
+
+
+        
+        for i in  range(len(temp)) :#tempの中身をプロット
+            x,y,color=temp[i]
+            ln,=self._ax.plot(x,y,marker='.',color=color)
+            self.count+=1
+            index=(self.count)%self.stock_num
+            if self.artistlist[index] is not None:
+                self.artistlist[index].remove()
+            self.artistlist[index]=ln
+
+        if self.yauto:
+            self._ax.relim()
+        self._ax.set_xlim(x-self.xwidth,x)
+        self._figure.canvas.flush_events() #グラフを再描画するおまじない

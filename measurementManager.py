@@ -24,7 +24,7 @@ class State(Enum):
     BUNKATSU=auto()
     ALLEND=auto()
 
-def _set_variables(datadir,tempdir,file_label):
+def _set_variables(datadir,tempdir,file_label):#グローバル変数のセット
     global _datadir,_tempdir,_data_label
     _datadir=datadir
     _tempdir=tempdir
@@ -36,6 +36,9 @@ graph_renew_interval=1
 __logger=util.mklogger(__name__)
 
 __state=State.READY
+__flowwindow_parameter=None
+
+__command=None
 
 def measure_start(start,update,end,on_command,bunkatsu):
 
@@ -53,24 +56,25 @@ def measure_start(start,update,end,on_command,bunkatsu):
     _run_window()#グラフウィンドウの立ち上げ
 
     
-    #finishコマンドの入力待ちをする
-    global _lock_thread
-    _lock_thread=threading.Lock()
+
 
     if on_command is not None:
-        cmthr=threading.Thread(target=_wait_command_input,args=(on_command,_lock_thread))
+        cmthr=threading.Thread(target=_wait_command_input)
         cmthr.setDaemon(True)
         cmthr.start()
 
     print("measuring start...")
-
     __state=State.UPDATE
+    global __command
     while True:#測定終了までupdateを回す
         if _isfinish.value==1:
             break
-        _lock_thread.acquire()
-        update()
-        _lock_thread.release()
+        if __command is None:
+            update()
+        else:
+            on_command(__command)
+            __command=None
+
 
     print("measurement has finished...")
 
@@ -137,15 +141,15 @@ def _end():
 
 
         
-def _wait_command_input(on_command,_lock_thread):#終了コマンドの入力待ち, これは別スレッドで動かす
+def _wait_command_input():#終了コマンドの入力待ち, これは別スレッドで動かす
     while True:
-
         isf=_isfinish.value
         if msvcrt.kbhit() and isf==0: #入力が入って初めてinputが動くように(inputが動くとその間ループを抜けられないので)
             command=input()
-            _lock_thread.acquire()#メイン部分でどんな処理が書かれるか分からないのでGPIB制御がupdateと衝突しないように鍵をかける
-            on_command(command)
-            _lock_thread.release()
+            global __command
+            __command=command
+            while __command is not None:
+                time.sleep(0.1)
         elif isf==1:
             break
         time.sleep(0.1)
@@ -157,7 +161,7 @@ def _bunkatsu(bunkatsu):
     import shutil
     new_filepath=dirpath+"\\"+_filename+".txt"
     global _filepath
-    shutil.move(_filepath,new_filepath)
+    shutil.move(_filepath,new_filepath)#DATADIR直下から新規フォルダにファイルを移し替える
     _filepath=new_filepath
     bunkatsu(_filepath)
 
@@ -249,7 +253,7 @@ def _run_window():#グラフと終了コマンド待ち処理を走らせる
     _lock_process=Lock()#2つのプロセスで同時に同じデータを触らないようにする排他制御のキー
     #グラフ表示は別プロセスで実行する
     global _window_process
-    _window_process=Process(target=windowModule.exec,args=(_share_list,_isfinish,_lock_process,_xlog,_ylog,graph_renew_interval))
+    _window_process=Process(target=windowModule.exec,args=(_share_list,_isfinish,_lock_process,_xlog,_ylog,graph_renew_interval,__flowwindow_parameter))
     _window_process.daemon=True
     _window_process.start()
 
@@ -338,3 +342,8 @@ def plot_data(x,y,color="black"):#データをグラフにプロット
 
 def _copy_filename(filename):
     pyperclip.copy(filename)
+
+
+def set_flow_plotwindow(xwidth,yauto=False,stock_num=300):
+    global __flowwindow_parameter
+    __flowwindow_parameter=(xwidth,yauto,stock_num)
