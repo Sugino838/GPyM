@@ -40,7 +40,7 @@ __flowwindow_parameter=None
 
 __command=None
 
-def measure_start(start,update,end,on_command,bunkatsu):
+def _measure_start(start,update,end,on_command,bunkatsu):
 
     
     global __state

@@ -136,7 +136,7 @@ def main():
 
     os.chdir(macrodir)#カレントディレクトリを測定マクロ側に変更
 
-    mm.measure_start(start=target.start,update=target.update,end=target.end,on_command=target.on_command,bunkatsu=target.bunkatsu)#測定開始
+    mm._measure_start(start=target.start,update=target.update,end=target.end,on_command=target.on_command,bunkatsu=target.bunkatsu)#測定開始
     
 
     
