@@ -343,9 +343,9 @@ def plot_data(x,y,color="black"):#データをグラフにプロット
 
 
 
-def set_flow_plotwindow(xwidth,yauto=False,stock_num=300):
+def set_flow_plotwindow(xwidth,yauto=False):
     global __flowwindow_parameter
-    __flowwindow_parameter=(xwidth,yauto,stock_num)
+    __flowwindow_parameter=(xwidth,yauto)
 
 
 def _copy_prefilename():

@@ -108,7 +108,7 @@ class PlotWindow():
 from collections import deque
 class FlowPlotWindow(PlotWindow):
 
-    artistlist=[]
+    artistque=deque()
     count=0
     def __init__(self,share_list,lock,xlog,ylog,graph_renew_interval,__flowwindow_parameter):#コンストラクタ
         self.share_list=share_list
@@ -116,9 +116,7 @@ class FlowPlotWindow(PlotWindow):
         self.xlog=xlog
         self.ylog=ylog
         self.interval=graph_renew_interval
-        (self.xwidth,self.yauto,self.stock_num)=__flowwindow_parameter
-        for i in range(self.stock_num):
-            self.artistlist.append(None)
+        (self.xwidth,self.yauto)=__flowwindow_parameter
 
 
 
@@ -131,16 +129,29 @@ class FlowPlotWindow(PlotWindow):
 
 
         
+
         for i in  range(len(temp)) :#tempの中身をプロット
             x,y,color=temp[i]
             ln,=self._ax.plot(x,y,marker='.',color=color)
-            self.count+=1
-            index=(self.count)%self.stock_num
-            if self.artistlist[index] is not None:
-                self.artistlist[index].remove()
-            self.artistlist[index]=ln
+            self.artistque.append((x,ln))
+
+        if len(temp)==0:
+            return
+
+        xright=x
+        xleft=xright-self.xwidth
+
+        for i in range(len(self.artistque)):
+            xvalue,ln=self.artistque[0]
+            if xvalue<xleft:
+                self.artistque.popleft()
+                ln.remove()
+            else:
+                break
+        
+
 
         if self.yauto:
             self._ax.relim()
-        self._ax.set_xlim(x-self.xwidth,x)
+        self._ax.set_xlim(xleft,xright)
         self._figure.canvas.flush_events() #グラフを再描画するおまじない
