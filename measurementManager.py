@@ -39,15 +39,16 @@ __state=State.READY
 __flowwindow_parameter=None
 
 __command=None
+__repeat=False
 
 def _measure_start(start,update,end,on_command,bunkatsu):
 
-    
+    while msvcrt.kbhit():#既に入っている入力は消す
+        msvcrt.getwch()
     global __state
-    global _filename,_datelabel
-    _copy_prefilename()
-    _filename,_datelabel,_filename_withoutdate=inp.get_filename()
-    _set_filename(_filename_withoutdate)
+    
+    global _filename
+    _filename = _input_filename()
 
     if start is not None:
         __state=State.START
@@ -91,8 +92,10 @@ def _measure_start(start,update,end,on_command,bunkatsu):
     __state=State.ALLEND
     
 
-    
-    _end()
+    if __repeat:
+        _do_repeat(start,update,end,on_command,bunkatsu)
+    else:
+        _end()
 
 
 
@@ -277,41 +280,6 @@ def set_logscale(xlog=False,ylog=False):#グラフのlogスケール設定
 
 
 
-    
-def rename_file():#ファイル名変更
-    if __state!=State.END:
-        raise util.create_error(sys._getframe().f_code.co_name+"はend関数内で用いてください",__logger)
-
-
-
-    _,_,new_filename=inp.get_filename(text="ファイル名を変更する場合は入力してください > ")
-
-
-
-    if new_filename !="": #何も入力しなかったときは名前変更しない
-        new_filename=_datelabel+"_"+new_filename
-        global _filepath, _savefile,_filename
-
-        _savefile.close()
-
-        oldfilepath=_datadir+"\\"+_filename+".txt"
-        newfilepath=_datadir+"\\"+new_filename+".txt"
-    
-        os.rename(oldfilepath,newfilepath)
-        
-        _filepath=newfilepath
-        _filename=new_filename
-        _savefile=open(_filepath,mode="a",encoding=util.get_encode_type(_filepath))
-        print("ファイル名を"+new_filename+"に変更しました")
-
-    else:
-        print("ファイル名を変更しませんでした")
-
-    
-
-
-
-
 def save_data(data):#データ保存
     if __state!=State.UPDATE and __state!=State.END:
         __logger.warning(sys._getframe().f_code.co_name+"はupdateもしくはend関数内で用いてください")
@@ -360,4 +328,22 @@ def _set_filename(filename):
     with open(path,mode="w",encoding="utf-8") as f:
         f.write(filename)
 
-    
+def repeat_measurement(closewindow=True):
+    global __repeat,__closewindow_repeat
+    __repeat=True
+    __closewindow_repeat=closewindow
+
+
+def _do_repeat(start,update,end,on_command,bunkatsu):
+    global __repeat
+    if __closewindow_repeat:
+        _window_process.terminate()
+    print("next measurement start...")
+    __repeat=False
+    _measure_start(start,update,end,on_command,bunkatsu)
+
+def _input_filename():
+    _copy_prefilename()
+    _filename,_datelabel,_filename_withoutdate=inp.get_filename()
+    _set_filename(_filename_withoutdate)
+    return _filename

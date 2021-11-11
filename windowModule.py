@@ -75,7 +75,7 @@ class PlotWindow():
         while True:#終了してもグラフを表示したままにする
             try:
                 self._figure.canvas.flush_events()
-            except Exception:#｢ここでエラーが出る⇒グラフウィンドウを消した｣と想定しているのでエラーはもみ消す
+            except Exception:#｢ここでエラーが出る⇒グラフウィンドウを消した｣と想定してエラーはもみ消しループを抜ける
                 break
             time.sleep(0.05)#グラフ操作のFPSを20くらいにする
    
@@ -111,11 +111,7 @@ class FlowPlotWindow(PlotWindow):
     artistque=deque()
     count=0
     def __init__(self,share_list,lock,xlog,ylog,graph_renew_interval,__flowwindow_parameter):#コンストラクタ
-        self.share_list=share_list
-        self.lock=lock
-        self.xlog=xlog
-        self.ylog=ylog
-        self.interval=graph_renew_interval
+        super().__init__(share_list,lock,xlog,ylog,graph_renew_interval)
         (self.xwidth,self.yauto)=__flowwindow_parameter
 
 
