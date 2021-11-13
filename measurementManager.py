@@ -61,7 +61,7 @@ def _measure_start(start,update,end,on_command,bunkatsu):
         __state=State.START
         start()
 
-    _set_file()#ファイル作成
+    _set_file(bunkatsu)#ファイル作成
     _run_window()#グラフウィンドウの立ち上げ
 
     
@@ -95,7 +95,7 @@ def _measure_start(start,update,end,on_command,bunkatsu):
     
     if bunkatsu is not None:
         __state=State.BUNKATSU
-        _bunkatsu(bunkatsu)
+        bunkatsu(_filepath)
     __state=State.ALLEND
     
 
@@ -147,7 +147,7 @@ def _end():
         if endflag:
             _window_process.terminate()
             sys.exit()
-        time.sleep(0.2)
+        time.sleep(0.05)
     
 
 
@@ -165,16 +165,6 @@ def _wait_command_input():#終了コマンドの入力待ち, これは別スレ
             break
         time.sleep(0.1)
 
-        
-def _bunkatsu(bunkatsu):
-    dirpath=_datadir+"\\"+_filename
-    os.mkdir(dirpath)
-    import shutil
-    new_filepath=dirpath+"\\"+_filename+".txt"
-    global _filepath
-    shutil.move(_filepath,new_filepath)#DATADIR直下から新規フォルダにファイルを移し替える
-    _filepath=new_filepath
-    bunkatsu(_filepath)
 
 
 def set_calibration_file(filename_calb): #プラチナ温度計の抵抗値を温度に変換するためのファイルを読み込み
@@ -234,14 +224,22 @@ def set_label(label):
         label+="\n"
     __user_label=__user_label+label
 
-def _set_file():#ファイルの作成,準備
-    
+def _set_file(bunkatsu):#ファイルの作成,準備
+
     if not os.path.isdir(_datadir):#フォルダの存在確認
         raise util.create_error(_datadir+"のフォルダにアクセスしようとしましたが､存在しませんでした",__logger)
+    
+
+    global _filepath
+    if bunkatsu is None:
+        _filepath=_datadir+"\\"+ _filename+".txt"
+    else:
+        nowdatadir=_datadir+"\\"+ _filename
+        os.mkdir(nowdatadir)
+        _filepath=nowdatadir+"\\"+ _filename+".txt"
+        
 
     
-    global _filepath
-    _filepath=_datadir+"\\"+ _filename+".txt"
         
     global _savefile
     _savefile = open(_filepath, 'x',encoding="utf-8") #ファイル作成
@@ -270,13 +268,15 @@ def _run_window():#グラフと終了コマンド待ち処理を走らせる
 
 
 
-def set_plot_info(line=False,xlog=False,ylog=False,renew_interval=1,flowwidth=0):
+def set_plot_info(line=False,xlog=False,ylog=False,renew_interval=1,legend=False,flowwidth=0):
     if __state!=State.READY and __state!=State.START:
         __logger.warning(sys._getframe().f_code.co_name+"はstart関数内で用いてください")
     if type(line) is not bool:
         raise util.create_error(sys._getframe().f_code.co_name+": lineの値はTrueかFalseです",__logger)
     if type(xlog) is not bool or type(ylog) is not bool:
         raise util.create_error(sys._getframe().f_code.co_name+": xlog,ylogの値はTrueかFalseです",__logger)
+    if type(legend) is not bool :
+        raise util.create_error(sys._getframe().f_code.co_name+": legendの値はTrueかFalseです",__logger)
     if type(flowwidth) is not float and type(flowwidth) is not int:
         raise util.create_error(sys._getframe().f_code.co_name+": flowwidthの型はintかfloatです",__logger)
     if flowwidth<0:
@@ -287,7 +287,7 @@ def set_plot_info(line=False,xlog=False,ylog=False,renew_interval=1,flowwidth=0)
         raise util.create_error(sys._getframe().f_code.co_name+": renew_intervalの型は0以上にする必要があります",__logger)
 
     global __plot_info
-    __plot_info={"line":line,"xlog":xlog,"ylog":ylog,"renew_interval":renew_interval,"flowwidth":flowwidth}
+    __plot_info={"line":line,"xlog":xlog,"ylog":ylog,"renew_interval":renew_interval,"legend":legend,"flowwidth":flowwidth}
 
 
 
@@ -311,10 +311,10 @@ def save_data(data):#データ保存
     
 
 
-def plot_data(x,y,color="black"):#データをグラフにプロット
+def plot_data(x,y,label="default"):#データをグラフにプロット
     if __state!=State.UPDATE:
         __logger.warning(sys._getframe().f_code.co_name+"はstartもしくはupdate関数内で用いてください")
-    data=(x,y,color)
+    data=(x,y,label)
     _lock_process.acquire() #   ロックをかけて別プロセスからアクセスできないようにする
     _share_list.append(data)# プロセス間で共有するリストにデータを追加
     _lock_process.release()#ロック解除

@@ -14,6 +14,7 @@ import copy
 """
 
 
+colormap = ("black","red","green","blue","orange","deepskyblue","purple","gray","saddlebrown","crimson","limegreen","royalblue","orangered","skyblue","darkslategray","deeppink","darkslateblue","olivedrab","darkgoldenrod","brown","teal","lightgray")
 
 
 def exec(share_list,isfinish,lock,plot_info):#別プロセスで最初に実行される場所
@@ -51,17 +52,23 @@ class PlotWindow():
     _figure=None
     _ax=None
 
-    def __init__(self,share_list,isfinish,lock,xlog,ylog,renew_interval,flowwidth,line):#コンストラクタ
+    def __init__(self,share_list,isfinish,lock,xlog,ylog,renew_interval,flowwidth,line,legend):#コンストラクタ
         self.share_list=share_list
         self.lock=lock
         self.interval=renew_interval
         self.flowwidth=flowwidth
         self.isfinish=isfinish
+        self.legend=legend
         self.linestyle=None if line else "None"
 
         #プロットウィンドウを表示
         plt.ion()#ここはコピペ
-        self._figure, self._ax = plt.subplots(figsize=(8,6))#ここはコピペ
+        self._figure, self._ax = plt.subplots(figsize=(12,7.5))#ここはコピペ
+        if legend:
+            self._figure.subplots_adjust(right=0.8,left=0.1,top=0.95,bottom=0.1)
+        else:
+            self._figure.subplots_adjust(right=0.9,left=0.1,top=0.9,bottom=0.1)
+
         if xlog:
             plt.xscale('log')#横軸をlogスケールに
         if ylog:
@@ -85,8 +92,7 @@ class PlotWindow():
 
 
         
-    
-    
+    _count_label=0
     linedict={}
     max_x=None
     max_y=None
@@ -100,24 +106,36 @@ class PlotWindow():
         self.lock.release()#ロック解除
 
 
-        relim=False
+        relim=False#for文が1回も回らないことがあるのでここで宣言しておく
 
         for i in  range(len(temp)) :#tempの中身をプロット
-            x,y,color=temp[i]
+            x,y,label=temp[i]
 
-            if color not in self.linedict.keys():
+            if label not in self.linedict.keys():#最初の一回だけは辞書にln(型はLine2Dだったはず)を登録する
                 xarray=[x]
                 yaaray=[y]
-                ln,=self._ax.plot(xarray,yaaray,marker='.',color=color,linestyle=self.linestyle)
+                color=colormap[(self._count_label)%len(colormap)]
+                self._count_label+=1
+                ln,=self._ax.plot(xarray,yaaray,marker='.',color=color,label=label,linestyle=self.linestyle)
                 lineobj=LineObj(ln,xarray,yaaray)
-                self.linedict[color]=lineobj
-            else:
-                lineobj=self.linedict[color]
+                self.linedict[label]=lineobj
+
+                if self.legend:
+                    if self._count_label>20:
+                        ncol=2
+                    else:
+                        ncol=1
+                    self._ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0, fontsize=14,ncol=ncol)
+                
+                
+            else:#2回目以降は色をキーにして辞書からlnをとってくる
+                lineobj=self.linedict[label]
                 lineobj.xarray.append(x)
                 lineobj.yaaray.append(y)
                 lineobj.ln.set_data(lineobj.xarray,lineobj.yaaray)
 
             
+            #今までの範囲の外にプロットしたときは範囲を更新
             if self.max_x is None:
                 self.max_x=x
             elif self.max_x<x:
@@ -144,13 +162,16 @@ class PlotWindow():
         
         if relim:
             if self.flowwidth<=0:
+                #範囲の更新
                 self._ax.set_xlim(self.min_x,self.max_x)
                 self._ax.set_ylim(self.min_y,self.max_y)
             else:
+                #横幅が決まっているときはそれに先頭に合わせて範囲を変更
                 xmin=self.max_x-self.flowwidth
                 self._ax.set_xlim(xmin,self.max_x)
                 self._ax.set_ylim(self.min_y,self.max_y)
 
+                #範囲外のプロットは消す
                 for l in self.linedict.values():
                     xarray=l.xarray
                     yaaray=l.yaaray
