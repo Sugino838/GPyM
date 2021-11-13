@@ -16,6 +16,10 @@ from concurrent.futures import ThreadPoolExecutor
 import pyperclip
 from utilityModule import GPyMException
 
+
+colors=["black","red","green","blue","orange","deepskyblue","purple","saddlebrown","crimson","limegreen","royalblue","orangered","skyblue","darkviolet"]
+
+
 class State(Enum):
     READY=auto()
     START=auto()
@@ -31,24 +35,27 @@ def _set_variables(datadir,tempdir,file_label):#グローバル変数のセッ�
     _data_label=file_label
 
 
-graph_renew_interval=1
+graph_renew_interval=None
 
 __logger=util.mklogger(__name__)
 
-__state=State.READY
+
 __flowwindow_parameter=None
 
 __command=None
 __repeat=False
 
 def _measure_start(start,update,end,on_command,bunkatsu):
+    global __state
+    __state=State.READY
 
     while msvcrt.kbhit():#既に入っている入力は消す
         msvcrt.getwch()
-    global __state
     
     global _filename
     _filename = _input_filename()
+    
+    set_plot_info()#start内で呼ばれなかったときのためにここで一回呼んでおく
 
     if start is not None:
         __state=State.START
@@ -173,7 +180,7 @@ def _bunkatsu(bunkatsu):
 def set_calibration_file(filename_calb): #プラチナ温度計の抵抗値を温度に変換するためのファイルを読み込み
 
     if not os.path.isfile(filename_calb):
-        raise util.create_error(os.getcwd()+"で'"+filename_calb+"'にアクセスしようとしましたが存在しませんでした. キャリブレーションファイルはマクロと同じフォルダに置いてください",__logger)
+        raise util.create_error("キャリブレーションファイル"+filename_calb+"が存在しません. "+os.getcwd()+"で'"+filename_calb+"'にアクセスしようとしましたが存在しませんでした. キャリブレーションファイルはマクロと同じフォルダに置いてください",__logger)
 
 
     global _interpolate_func
@@ -257,26 +264,30 @@ def _run_window():#グラフと終了コマンド待ち処理を走らせる
     _lock_process=Lock()#2つのプロセスで同時に同じデータを触らないようにする排他制御のキー
     #グラフ表示は別プロセスで実行する
     global _window_process
-    _window_process=Process(target=windowModule.exec,args=(_share_list,_isfinish,_lock_process,_xlog,_ylog,graph_renew_interval,__flowwindow_parameter))
+    _window_process=Process(target=windowModule.exec,args=(_share_list,_isfinish,_lock_process,__plot_info))
     _window_process.daemon=True
     _window_process.start()
 
 
 
-
-
-_xlog=False
-_ylog=False
-def set_logscale(xlog=False,ylog=False):#グラフのlogスケール設定
-    if __state!=State.START:
+def set_plot_info(line=False,xlog=False,ylog=False,renew_interval=1,flowwidth=0):
+    if __state!=State.READY and __state!=State.START:
         __logger.warning(sys._getframe().f_code.co_name+"はstart関数内で用いてください")
+    if type(line) is not bool:
+        raise util.create_error(sys._getframe().f_code.co_name+": lineの値はTrueかFalseです",__logger)
     if type(xlog) is not bool or type(ylog) is not bool:
-        raise util.create_error(sys._getframe().f_code.co_name+"の引数はTrueかFalseです",__logger)
-    global _xlog,_ylog
-    _xlog=xlog
-    _ylog=ylog
+        raise util.create_error(sys._getframe().f_code.co_name+": xlog,ylogの値はTrueかFalseです",__logger)
+    if type(flowwidth) is not float and type(flowwidth) is not int:
+        raise util.create_error(sys._getframe().f_code.co_name+": flowwidthの型はintかfloatです",__logger)
+    if flowwidth<0:
+        raise util.create_error(sys._getframe().f_code.co_name+": flowwidthの値は0以上にする必要があります",__logger)
+    if type(renew_interval) is not float and type(renew_interval) is not int:
+        raise util.create_error(sys._getframe().f_code.co_name+": renew_intervalの型はintかfloatです",__logger)
+    if renew_interval<0:
+        raise util.create_error(sys._getframe().f_code.co_name+": renew_intervalの型は0以上にする必要があります",__logger)
 
-
+    global __plot_info
+    __plot_info={"line":line,"xlog":xlog,"ylog":ylog,"renew_interval":renew_interval,"flowwidth":flowwidth}
 
 
 
@@ -307,13 +318,6 @@ def plot_data(x,y,color="black"):#データをグラフにプロット
     _lock_process.acquire() #   ロックをかけて別プロセスからアクセスできないようにする
     _share_list.append(data)# プロセス間で共有するリストにデータを追加
     _lock_process.release()#ロック解除
-    
-
-
-
-def set_flow_plotwindow(xwidth,yauto=False):
-    global __flowwindow_parameter
-    __flowwindow_parameter=(xwidth,yauto)
 
 
 def _copy_prefilename():
