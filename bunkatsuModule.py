@@ -278,7 +278,7 @@ def create_file(filepath,data,label=""):
 
 
     if os.path.isfile(filepath):
-        raise util.create_error(filepath+"は既に存在しています.削除してからやり直してください.",__logger)
+        raise util.create_error("新規作成しようとしたファイル"+filepath+"は既に存在しています.削除してからやり直してください.\n解決できない場合はcyclic_splitの分割数などを見直してみてください",__logger)
 
     with open(filepath,'x',encoding="utf-8") as f:
         f.write(label)
