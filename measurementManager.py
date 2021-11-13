@@ -29,18 +29,13 @@ class State(Enum):
     ALLEND=auto()
 
 def _set_variables(datadir,tempdir,file_label):#グローバル変数のセット
-    global _datadir,_tempdir,_data_label
-    _datadir=datadir
-    _tempdir=tempdir
+    global __datadir,__tempdir,_data_label
+    __datadir=datadir
+    __tempdir=tempdir
     _data_label=file_label
 
 
-graph_renew_interval=None
-
 __logger=util.mklogger(__name__)
-
-
-__flowwindow_parameter=None
 
 __command=None
 __repeat=False
@@ -76,7 +71,7 @@ def _measure_start(start,update,end,on_command,bunkatsu):
     __state=State.UPDATE
     global __command
     while True:#測定終了までupdateを回す
-        if _isfinish.value==1:
+        if __isfinish.value==1:
             break
         if __command is None:
             update()
@@ -91,16 +86,16 @@ def _measure_start(start,update,end,on_command,bunkatsu):
         __state=State.END
         end()
     
-    _savefile.close()
+    __savefile.close()
     
     if bunkatsu is not None:
         __state=State.BUNKATSU
-        bunkatsu(_filepath)
+        bunkatsu(__filepath)
     __state=State.ALLEND
     
 
     if __repeat:
-        _do_repeat(start,update,end,on_command,bunkatsu)
+        __do_repeat(start,update,end,on_command,bunkatsu)
     else:
         _end()
 
@@ -109,10 +104,12 @@ def _measure_start(start,update,end,on_command,bunkatsu):
 
 
 def get_tempdir():
-    return _tempdir
+    return __tempdir
+def get_datadir():
+    return __datadir
 
 def finish():
-    _isfinish.value=1
+    __isfinish.value=1
     
 
 def _end():
@@ -125,7 +122,7 @@ def _end():
         endflag=True
     def wait_closewindow():#グラフウィンドウからの終了
         nonlocal endflag
-        _window_process.join()#_window_processの終了待ち
+        __window_process.join()#_window_processの終了待ち
         endflag=True
 
     endflag=False
@@ -145,7 +142,7 @@ def _end():
 
     while True:
         if endflag:
-            _window_process.terminate()
+            __window_process.terminate()
             sys.exit()
         time.sleep(0.05)
     
@@ -154,7 +151,7 @@ def _end():
         
 def _wait_command_input():#終了コマンドの入力待ち, これは別スレッドで動かす
     while True:
-        isf=_isfinish.value
+        isf=__isfinish.value
         if msvcrt.kbhit() and isf==0: #入力が入って初めてinputが動くように(inputが動くとその間ループを抜けられないので)
             command=input()
             global __command
@@ -173,7 +170,7 @@ def set_calibration_file(filename_calb): #プラチナ温度計の抵抗値を�
         raise util.create_error("キャリブレーションファイル"+filename_calb+"が存在しません. "+os.getcwd()+"で'"+filename_calb+"'にアクセスしようとしましたが存在しませんでした. キャリブレーションファイルはマクロと同じフォルダに置いてください",__logger)
 
 
-    global _interpolate_func
+    global __interpolate_func
     file=open(filename_calb,'r',encoding=util.get_encode_type(filename_calb))
 
     x=[]
@@ -197,8 +194,8 @@ def set_calibration_file(filename_calb): #プラチナ温度計の抵抗値を�
             pass
         
     print("calibration_range: x=",x[0]," ~ ",x[len(x)-1])
-    global _interpolate_func
-    _interpolate_func = interpolate.interp1d(x,y) # 線形補間関数定義
+    global __interpolate_func
+    __interpolate_func = interpolate.interp1d(x,y) # 線形補間関数定義
 
 def calibration(x):
     """
@@ -206,7 +203,7 @@ def calibration(x):
     """
 
     try:
-        y=_interpolate_func(x)
+        y=__interpolate_func(x)
     except ValueError as e:
         raise util.create_error("Keithleyから入力されるデータがキャリブレーションファイルのデータ範囲外になっている可能性があります",__logger,e)
     except NameError as e:
@@ -226,49 +223,49 @@ def set_label(label):
 
 def _set_file(bunkatsu):#ファイルの作成,準備
 
-    if not os.path.isdir(_datadir):#フォルダの存在確認
-        raise util.create_error(_datadir+"のフォルダにアクセスしようとしましたが､存在しませんでした",__logger)
+    if not os.path.isdir(__datadir):#フォルダの存在確認
+        raise util.create_error(__datadir+"のフォルダにアクセスしようとしましたが､存在しませんでした",__logger)
     
 
-    global _filepath
+    global __filepath
     if bunkatsu is None:
-        _filepath=_datadir+"\\"+ _filename+".txt"
+        __filepath=__datadir+"\\"+ _filename+".txt"
     else:
-        nowdatadir=_datadir+"\\"+ _filename
+        nowdatadir=__datadir+"\\"+ _filename
         os.mkdir(nowdatadir)
-        _filepath=nowdatadir+"\\"+ _filename+".txt"
+        __filepath=nowdatadir+"\\"+ _filename+".txt"
         
 
     
         
-    global _savefile
-    _savefile = open(_filepath, 'x',encoding="utf-8") #ファイル作成
+    global __savefile
+    __savefile = open(__filepath, 'x',encoding="utf-8") #ファイル作成
 
     file_label=__user_label+_data_label+"\n"
-    _savefile.write(file_label) #測定データのラベル書き込み
+    __savefile.write(file_label) #測定データのラベル書き込み
 
-    _savefile.flush() #書き込みを反映させる
+    __savefile.flush() #書き込みを反映させる
 
-    return _filepath
+    return __filepath
 
 
 
 
 def _run_window():#グラフと終了コマンド待ち処理を走らせる
     manager = Manager() 
-    global _share_list,_isfinish,_lock_process
-    _share_list=manager.list()#プロセス間で共有できるリスト
-    _isfinish=Value("i",0)#測定の終了を判断するためのint
-    _lock_process=Lock()#2つのプロセスで同時に同じデータを触らないようにする排他制御のキー
+    global __share_list,__isfinish,__lock_process
+    __share_list=manager.list()#プロセス間で共有できるリスト
+    __isfinish=Value("i",0)#測定の終了を判断するためのint
+    __lock_process=Lock()#2つのプロセスで同時に同じデータを触らないようにする排他制御のキー
     #グラフ表示は別プロセスで実行する
-    global _window_process
-    _window_process=Process(target=windowModule.exec,args=(_share_list,_isfinish,_lock_process,__plot_info))
-    _window_process.daemon=True
-    _window_process.start()
+    global __window_process
+    __window_process=Process(target=windowModule.exec,args=(__share_list,__isfinish,__lock_process,__plot_info))
+    __window_process.daemon=True
+    __window_process.start()
 
 
 
-def set_plot_info(line=False,xlog=False,ylog=False,renew_interval=1,legend=False,flowwidth=0):
+def set_plot_info(line=False,xlog=False,ylog=False,renew_interval=1,legend=False,flowwidth=0):#プロット情報の入力
     if __state!=State.READY and __state!=State.START:
         __logger.warning(sys._getframe().f_code.co_name+"はstart関数内で用いてください")
     if type(line) is not bool:
@@ -294,9 +291,11 @@ def set_plot_info(line=False,xlog=False,ylog=False,renew_interval=1,legend=False
 def save_data(data):#データ保存
     if __state!=State.UPDATE and __state!=State.END:
         __logger.warning(sys._getframe().f_code.co_name+"はupdateもしくはend関数内で用いてください")
-    
+    if type(data) is not str and not isinstance(data, tuple):
+        raise util.create_error(sys._getframe().f_code.co_name+": dataはタプル型､もしくはstring型でなければなりません",__logger)
+
     if type(data) is str:#文字列を入力したときにも一応対応
-        _savefile.write(data)#書き込み
+        __savefile.write(data)#書き込み
     else:
         text=""
         for i in range(len(data)):#タプルの全要素をstringにして並べる
@@ -305,8 +304,8 @@ def save_data(data):#データ保存
             else:
                 text+=","+str(data[i])
         text+="\n"#末尾に改行記号
-        _savefile.write(text)#書き込み
-    _savefile.flush()#反映. この処理はやや重いので高速化したいならこれを呼ばずに最後にcloseで一気に反映させるのが良い
+        __savefile.write(text)#書き込み
+    __savefile.flush()#反映. この処理はやや重いので高速化したいならこれを呼ばずに最後にcloseで一気に反映させるのが良い
     
     
 
@@ -315,39 +314,39 @@ def plot_data(x,y,label="default"):#データをグラフにプロット
     if __state!=State.UPDATE:
         __logger.warning(sys._getframe().f_code.co_name+"はstartもしくはupdate関数内で用いてください")
     data=(x,y,label)
-    _lock_process.acquire() #   ロックをかけて別プロセスからアクセスできないようにする
-    _share_list.append(data)# プロセス間で共有するリストにデータを追加
-    _lock_process.release()#ロック解除
+    __lock_process.acquire() #   ロックをかけて別プロセスからアクセスできないようにする
+    __share_list.append(data)# プロセス間で共有するリストにデータを追加
+    __lock_process.release()#ロック解除
 
-
-def _copy_prefilename():
-    path=_tempdir+"\\prefilename"
-    if os.path.isfile(path):
-        with open(path,mode="r",encoding=util.get_encode_type(path)) as f:
-            prefilename=f.read()
-            pyperclip.copy(prefilename)
-
-def _set_filename(filename):
-    path=_tempdir+"\\prefilename"
-    with open(path,mode="w",encoding="utf-8") as f:
-        f.write(filename)
-
-def repeat_measurement(closewindow=True):
+def repeat_measurement(closewindow=True):#測定の繰り返しを伝える関数
     global __repeat,__closewindow_repeat
     __repeat=True
     __closewindow_repeat=closewindow
 
 
-def _do_repeat(start,update,end,on_command,bunkatsu):
+def __do_repeat(start,update,end,on_command,bunkatsu):#実際に測定を繰り返す関数
     global __repeat
     if __closewindow_repeat:
-        _window_process.terminate()
+        __window_process.terminate()
     print("next measurement start...")
     __repeat=False
     _measure_start(start,update,end,on_command,bunkatsu)
 
-def _input_filename():
+
+def _copy_prefilename():#前回のファイル名をコピー
+    path=__tempdir+"\\prefilename"
+    if os.path.isfile(path):
+        with open(path,mode="r",encoding=util.get_encode_type(path)) as f:
+            prefilename=f.read()
+            pyperclip.copy(prefilename)
+
+def _set_filename(filename):#ファイル名をtemodirに保存
+    path=__tempdir+"\\prefilename"
+    with open(path,mode="w",encoding="utf-8") as f:
+        f.write(filename)
+
+def _input_filename():#ファイル名入力
     _copy_prefilename()
-    _filename,_datelabel,_filename_withoutdate=inp.get_filename()
-    _set_filename(_filename_withoutdate)
-    return _filename
+    filename,_datelabel,filename_withoutdate=inp.get_filename()
+    _set_filename(filename_withoutdate)
+    return filename
