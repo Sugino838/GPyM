@@ -60,12 +60,14 @@ def _measure_start(start,update,end,on_command,bunkatsu):
     _run_window()#グラフウィンドウの立ち上げ
 
     
-
+    while msvcrt.kbhit():#既に入っている入力は消す
+        msvcrt.getwch()
 
     if on_command is not None:
         cmthr=threading.Thread(target=_wait_command_input)
         cmthr.setDaemon(True)
         cmthr.start()
+
 
     print("measuring start...")
     __state=State.UPDATE
@@ -117,15 +119,16 @@ def _end():
     終了処理. コンソールからの終了と､グラフウィンドウを閉じたときの終了の2つを実行できるようにスレッドを用いる
     """
     def wait_enter():#コンソール側の終了
-        nonlocal endflag #nonlocalを使うとクロージャーになる
+        nonlocal endflag,windowclose #nonlocalを使うとクロージャーになる
         input("enter and close window...") #エンターを押したら次へ進める
         endflag=True
+        windowclose=True
     def wait_closewindow():#グラフウィンドウからの終了
         nonlocal endflag
         __window_process.join()#_window_processの終了待ち
         endflag=True
-
     endflag=False
+    windowclose=False
 
     thread1=threading.Thread(target=wait_closewindow)
     thread1.setDaemon(True)
@@ -142,7 +145,7 @@ def _end():
 
     while True:
         if endflag:
-            __window_process.terminate()
+            if not windowclose: __window_process.terminate()
             sys.exit()
         time.sleep(0.05)
     
