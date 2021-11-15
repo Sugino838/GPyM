@@ -17,8 +17,6 @@ import pyperclip
 from utilityModule import GPyMException
 
 
-colors=["black","red","green","blue","orange","deepskyblue","purple","saddlebrown","crimson","limegreen","royalblue","orangered","skyblue","darkviolet"]
-
 
 class State(Enum):
     READY=auto()
@@ -204,11 +202,10 @@ def calibration(x):
     """
     プラチナ温度計の抵抗値xに対応する温度yを線形補間で返す
     """
-
     try:
         y=__interpolate_func(x)
     except ValueError as e:
-        raise util.create_error("Keithleyから入力されるデータがキャリブレーションファイルのデータ範囲外になっている可能性があります",__logger,e)
+        raise util.create_error("入力されたデータ "+str(x)+" がキャリブレーションファイルのデータ範囲外になっている可能性があります",__logger,e)
     except NameError as e:
         raise util.create_error("キャリブレーションファイルが読み込まれていない可能性があります",__logger,e)
     except Exception as e:
@@ -249,7 +246,6 @@ def _set_file(bunkatsu):#ファイルの作成,準備
 
     __savefile.flush() #書き込みを反映させる
 
-    return __filepath
 
 
 
@@ -288,6 +284,7 @@ def set_plot_info(line=False,xlog=False,ylog=False,renew_interval=1,legend=False
 
     global __plot_info
     __plot_info={"line":line,"xlog":xlog,"ylog":ylog,"renew_interval":renew_interval,"legend":legend,"flowwidth":flowwidth}
+
 
 
 

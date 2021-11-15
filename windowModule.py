@@ -45,6 +45,14 @@ class PlotWindow():
             測定が終了した可動化を判定.
             測定が終了したらmeasurementManager側でisfinish=1が代入される
 
+        interval :float
+            グラフの更新間隔
+
+        legend : bool
+            凡例を表示するかどうか
+
+        linestyle : string
+            グラフに線をつけるかどうか
 
         
     """
@@ -59,7 +67,7 @@ class PlotWindow():
         self.flowwidth=flowwidth
         self.isfinish=isfinish
         self.legend=legend
-        self.linestyle=None if line else "None"
+        self.linestyle=None if line else "None" 
 
         #プロットウィンドウを表示
         plt.ion()#ここはコピペ
@@ -111,13 +119,13 @@ class PlotWindow():
         for i in  range(len(temp)) :#tempの中身をプロット
             x,y,label=temp[i]
 
-            if label not in self.linedict.keys():#最初の一回だけは辞書にln(型はLine2Dだったはず)を登録する
+            if label not in self.linedict.keys():#最初の一回だけは辞書に登録する
                 xarray=[x]
                 yaaray=[y]
                 color=colormap[(self._count_label)%len(colormap)]
                 self._count_label+=1
-                ln,=self._ax.plot(xarray,yaaray,marker='.',color=color,label=label,linestyle=self.linestyle)
-                lineobj=LineObj(ln,xarray,yaaray)
+                ln,=self._ax.plot(xarray,yaaray,marker='.',color=color,label=label,linestyle=self.linestyle) #プロット
+                lineobj=LineObj(ln,xarray,yaaray)#辞書に追加
                 self.linedict[label]=lineobj
 
                 if self.legend:
@@ -128,7 +136,7 @@ class PlotWindow():
                     self._ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0, fontsize=14,ncol=ncol)
                 
                 
-            else:#2回目以降は色をキーにして辞書からlnをとってくる
+            else:#2回目以降は色をキーにして辞書からLineObjをとってくる
                 lineobj=self.linedict[label]
                 lineobj.xarray.append(x)
                 lineobj.yaaray.append(y)
