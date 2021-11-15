@@ -20,8 +20,13 @@ def get_encode_type( file_path ) :#テキストファイルの文字コードを
                 break
     detector.close()
     encode_type= detector.result[ "encoding" ]
-    if  encode_type=="Windows-1252": #shift-jisがwindows-1252に誤認識されるので強引に直す.(windows-1252が使われているファイルが存在しないことを想定している)
-        encode_type="SHIFT_JIS"
+    confidence=0
+    for prober in detector._charset_probers:#誤認識を回避するためにutf-8かSHIFT_JISの可能性があればそっちに変更
+        if prober.charset_name=="utf-8" or prober.charset_name=="SHIFT_JIS":
+            if prober.get_confidence()>confidence:
+                encode_type=prober.charset_name
+                confidence=prober.get_confidence()
+    
     
     return encode_type
 
