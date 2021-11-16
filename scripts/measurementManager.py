@@ -26,11 +26,12 @@ class State(Enum):
     BUNKATSU=auto()
     ALLEND=auto()
 
-def _set_variables(datadir,tempdir,file_label):#グローバル変数のセット
-    global __datadir,__tempdir,_data_label
+def _set_variables(datadir,tempdir,file_label,shared_settings_dir):#グローバル変数のセット
+    global __datadir,__tempdir,_data_label,__shared_settings_dir
     __datadir=datadir
     __tempdir=tempdir
     _data_label=file_label
+    __shared_settings_dir=shared_settings_dir
 
 
 __logger=util.mklogger(__name__)
@@ -107,6 +108,8 @@ def get_tempdir():
     return __tempdir
 def get_datadir():
     return __datadir
+def get_shared_settings_dir():
+    return __shared_settings_dir
 
 def finish():
     __isfinish.value=1
@@ -165,36 +168,55 @@ def _wait_command_input():#終了コマンドの入力待ち, これは別スレ
 
 
 
-def set_calibration_file(filename_calb): #プラチナ温度計の抵抗値を温度に変換するためのファイルを読み込み
+    
 
-    if not os.path.isfile(filename_calb):
-        raise util.create_error("キャリブレーションファイル"+filename_calb+"が存在しません. "+os.getcwd()+"で'"+filename_calb+"'にアクセスしようとしましたが存在しませんでした. キャリブレーションファイルはマクロと同じフォルダに置いてください",__logger)
+
+
+def set_calibration(filepath_calb=None):#プラチナ温度計の抵抗値を温度に変換するためのファイルを読み込み
+
+    if filepath_calb is not None:
+        if not os.path.isfile(filepath_calb):
+            raise util.create_error("キャリブレーションファイル"+filepath_calb+"が存在しません. "+os.getcwd()+"で'"+filepath_calb+"'にアクセスしようとしましたが存在しませんでした.",__logger)
+    else:
+        path=__shared_settings_dir+"/calibration_file"
+        if not os.path.isdir(path):
+            raise util.create_error(__share_list+" にcalibration_fileフォルダーが存在しません",__logger)
+        import glob
+        files = glob.glob(path+"/*")
+
+        
+        if len(files)==0:
+            raise util.create_error(path+"内には1つのキャリブレーションファイルを置く必要があります",__logger)
+        if len(files)>=2:
+            raise util.create_error(path+"内に2つ以上のファイルを置いてはいけません",__logger)
+        filepath_calb=files[0]
 
 
     global __interpolate_func
-    file=open(filename_calb,'r',encoding=util.get_encode_type(filename_calb))
+    with open(filepath_calb,'r',encoding=util.get_encode_type(filepath_calb)) as file:
 
-    x=[]
-    y=[]
+        x=[]
+        y=[]
 
-    while True:
-        line=file.readline() #1行ずつ読み取り
-        line = line.strip() #前後空白削除
-        line = line.replace('\n','') #末尾の\nの削除
+        while True:
+            line=file.readline() #1行ずつ読み取り
+            line = line.strip() #前後空白削除
+            line = line.replace('\n','') #末尾の\nの削除
 
-        if line == "": #空なら終了
-            break
+            if line == "": #空なら終了
+                break
 
-        try:
-            array_string = line.split(",") #","で分割して配列にする
-            array_float=[float(s) for s in array_string] #文字列からfloatに変換
-            
-            x.append(array_float[1])#抵抗値の情報
-            y.append(array_float[0])#対応する温度の情報
-        except Exception:
-            pass
-        
-    print("calibration_range: x=",x[0]," ~ ",x[len(x)-1])
+            try:
+                array_string = line.split(",") #","で分割して配列にする
+                array_float=[float(s) for s in array_string] #文字列からfloatに変換
+                
+                x.append(array_float[1])#抵抗値の情報
+                y.append(array_float[0])#対応する温度の情報
+            except Exception:
+                pass
+
+    calibfilename=os.path.split(filepath_calb)[1]
+    print("calibration :",calibfilename)
     global __interpolate_func
     __interpolate_func = interpolate.interp1d(x,y) # 線形補間関数定義
 

@@ -18,6 +18,7 @@ kernel32.SetConsoleMode(kernel32.GetStdHandle(-10), mode)
 
 
 TEMPDIR=None#TEMPフォルダーのパス
+SHERED_SETTINGS_DIR=None #共有設定フォルダのパス
 logger=util.mklogger(__name__)
 
 def main():
@@ -132,7 +133,7 @@ def main():
         UNDIFINE_WARNING=UNDIFINE_WARNING[:-2]
         print("UNDEFINED FUNCTION : "+UNDIFINE_WARNING)
 
-    mm._set_variables(datadir=datadir,tempdir=tempdir,file_label=data_label)
+    mm._set_variables(datadir=datadir,tempdir=tempdir,file_label=data_label,shared_settings_dir=SHERED_SETTINGS_DIR)
 
     os.chdir(macrodir)#カレントディレクトリを測定マクロ側に変更
 
@@ -147,6 +148,14 @@ if __name__=="__main__":
     if not os.path.isdir("TEMP"):#TEMPDIRが無ければつくる
         os.mkdir("TEMP")
     TEMPDIR=filedir+"\\TEMP"
+
+    if not os.path.isdir("SHERED_SETTINGS"):#TEMPDIRが無ければつくる
+        os.mkdir("SHERED_SETTINGS")
+    
+    SHERED_SETTINGS_DIR=filedir+"\\SHERED_SETTINGS"
+
+
+
     try:
         main()
     except Exception as e:

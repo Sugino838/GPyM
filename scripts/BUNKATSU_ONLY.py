@@ -21,7 +21,7 @@ def main():
 
     tk = Tk()
     print("分割マクロ選択...")
-    typ = [('pythonファイル','*.py')] 
+    typ = [('pythonファイル','*.py *.gpym')] 
     macroPath=tkfd.askopenfilename(filetypes = typ,title="分割マクロを選択してください") #ファイルダイアログでファイルを取得 
 
     macrodir,macroname=os.path.split(macroPath)
@@ -65,36 +65,6 @@ def main():
 
 
 
-# def get_bunkatsu_func(macropath):
-#     #一応GPIBケーブルが刺さって無くても動くようにしたかったのでグローバルエリアの処理は(importを除いて)無視するという実装にしています
-#     #あまり良い実装ではないので良い解決策があれば誰か直して下さい
-#     import ast
-#     import types
-#     import utilityModule 
-#     with open(macropath,mode="r",encoding=utilityModule.get_encode_type(macropath)) as f:
-#         p = ast.parse(f.read())
-
-
-#     for node in p.body[:]:
-#         if isinstance(node, ast.Assign): #Assign(グローバルエリアでの代入処理?)は排除. これによってGPIBModule.get_instrumentを排除
-#             p.body.remove(node)
-        
-#     #コピペ
-#     module = types.ModuleType("mod")
-#     code = compile(p, "mod.py", 'exec')
-#     sys.modules["mod"] = module
-#     exec(code,  module.__dict__)
-
-#     import mod 
-
-#     if not hasattr(mod, 'bunkatsu'):
-#         raise util.create_error(mod.__name__+".pyにはbunkatsu関数を定義する必要があります",logger)
-#     elif mod.bunkatsu.__code__.co_argcount!=1:
-#         raise util.create_error(mod.__name__+".bunkatsuには1つの引数が必要です",logger)
-
-
-#     print("WARNING : グローバル変数など, グローバルエリアに書いた処理は無視されます(仕様です)") 
-#     return mod.bunkatsu
 
 
 

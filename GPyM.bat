@@ -1,10 +1,13 @@
 @echo off
-if exist MAIN.py (
-rem
-) else (
-echo %CD%にはMAIN.pyが存在しません
+if not exist scripts (
+echo %CD%にはscriptsという名前のフォルダーが存在しません
+set /p __=
+exit /b
+)
+if not exist scripts\MAIN.py (
+echo %CD%\scriptsにはMAIN.pyが存在しません
 set /p __=
 exit /b
 )
 echo on
-py MAIN.py
+py scripts\MAIN.py

@@ -10,7 +10,7 @@ import math
 
 __logger=util.mklogger(__name__)
 
-def heating_cooling_split(data,T_index,sample_num=150,threshold=0.7):
+def heating_cooling_split(data,T_index,sample_and_cutout_num=(150,120),step=10,threshold=None):
 
     """
     heating,coolingを判断して分割する関数
@@ -24,11 +24,14 @@ def heating_cooling_split(data,T_index,sample_num=150,threshold=0.7):
     T_index : int
         温度が格納されている場所のインデックス(0始まり)
 
-    sample_num : int
+    sample_num : (int,int)
         温度変化を判断するためのサンプル数
+        1つ目のintは温度変化を判定するために使用するプロット点の数
+        2つ目のintは昇温降温を判断するための閾値(N個の点それぞれについて前の点より温度が上がっていれば+1,下がっていれば-1,絶対値がthreshold以下なら0で合計値がこのint以上なら昇温または降温とする)
 
     threshold : float
         温度変化を判断するための閾値
+        直前のプロットからの温度変化がこれ以下なら温度変化を0として扱う
 
     Returns
     _____________
@@ -37,21 +40,33 @@ def heating_cooling_split(data,T_index,sample_num=150,threshold=0.7):
         分割したかたまりごとに配列につめる
     """
 
-    if threshold<0 or threshold>1:
-        raise util.create_error("thresholdの値は0~1にしてください",__logger)
 
-    sample_num_hc=120#判定に使うサンプル数
-    threshold=sample_num_hc*0.7#分割の閾値
+    if step==0:
+        setp=1
+
+    sample_num=sample_and_cutout_num[0]
+    cutout_num=sample_and_cutout_num[1]
+
+
+    def temp_judge(temp_grad):
+        nonlocal threshold
+        value=1 if temp_grad >0 else -1 #温度が上昇していれば1, いなければ-1をサンプルにつめる
+        if threshold is not None and abs(temp_grad) < threshold:
+            value=0
+        return value
+
+
 
     samples_hc=[] #サンプルを入れる配列
     count=0
-    for i in range(sample_num_hc):
-        if count>=len(data)-1:
+    for i in range(sample_num):
+        if count>=len(data)-step:
             __logger.warning("データ数が少なすぎるかsample数が多すぎます. 必要最小データ数は"+sys._getframe().f_code.co_name+"の引数から設定できます")
             return [data]
 
-        displacement=1 if (data[count+1][T_index]-data[count][T_index])>0 else -1 #温度が上昇していれば1, いなければ-1をサンプルにつめる
-        samples_hc.append(displacement)
+        temp_grad=data[count+step][T_index]-data[count][T_index]
+
+        samples_hc.append(temp_judge(temp_grad))
         count+=1
     
     previous_state=-5#一個前の昇温降温状態. 一度温度勾配がなくなった後に再び同じ方向に温度変化した場合に対応
@@ -63,9 +78,9 @@ def heating_cooling_split(data,T_index,sample_num=150,threshold=0.7):
         sum_count=sum(samples_hc) #温度変化のサンプルの和をとる
         
         
-        if sum_count>threshold: #閾値を設定してそれを超えるかどうかでheating,coolingを判定
+        if sum_count>cutout_num: #閾値を設定してそれを超えるかどうかでheating,coolingを判定
             new_state=1
-        elif sum_count<threshold*(-1):
+        elif sum_count<cutout_num*(-1):
             new_state=-1
         else:
             new_state=0
@@ -82,17 +97,18 @@ def heating_cooling_split(data,T_index,sample_num=150,threshold=0.7):
                     split_points_hc.append(count) 
             
                 if new_state!=0:#今の状態がheating or cooling なら 分割の始まり
-                    split_points_hc.append(count-sample_num_hc)
+                    split_points_hc.append(count-sample_num)
                     previous_state=new_state
         
 
-        if count>=len(data)-1: #countが最後まできたら終了
+        if count>=len(data)-step: #countが最後まできたら終了
             if len(split_points_hc)%2==1:#最後の分割範囲が閉じてなければ閉じる
                 split_points_hc.append(count)
             break
 
         state=new_state
-        samples_hc[count%sample_num_hc]=1 if (data[count+1][T_index]-data[count][T_index])>0 else -1 #samples_hcのデータを1つ更新
+        temp_grad=data[count+step][T_index]-data[count][T_index]
+        samples_hc[count%sample_num]=temp_judge(temp_grad)
         count+=1
 
     new_data=[]
@@ -286,6 +302,35 @@ def create_file(filepath,data,label=""):
 
 
 
+
+def TMR_bunkatsu(filepath,T_index,f_index,freq_num=16,sample_and_cutout_num=(150,120),step=10,threshold=0):
+    print("bunkatsu start...")
+    data,filename,dirpath,label=file_open(filepath)#ファイルを開いて配列として取得
+    count=0
+    for split_data in heating_cooling_split(data,T_index=T_index,sample_and_cutout_num=sample_and_cutout_num,step=step,threshold=threshold):#昇温降温で分割
+
+        displacement=split_data[len(split_data)-1][T_index]-split_data[0][T_index]
+        state= "heating" if displacement>0 else "cooling"
+        new_dir=dirpath+"\\"+filename+"_"+str(count)+"_"+state
+
+        new_filepath=new_dir+"\\"+filename+"_"+str(count)+"_"+state+"_all.txt"
+        create_file(filepath=new_filepath,data=split_data,label=label)
+
+        for split_split_data in cyclic_split(split_data,cycle_num=14):#周波数でさらに分割
+
+
+            freq=split_split_data[0][f_index]
+            
+            freq=from_num_to_10Exx(freq,significant_digits=3)
+
+            new_filepath=new_dir+"\\"+filename+"_"+str(count)+"_"+state+"_"+freq+"Hz.txt"#ファイルのパスを設定
+
+            create_file(filepath=new_filepath,data=split_split_data,label=label)
+
+        count+=1
+
+
+    print("file has been completely bunkatsued")
 
 
 

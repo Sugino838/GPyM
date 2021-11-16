@@ -71,11 +71,9 @@ class PlotWindow():
 
         #プロットウィンドウを表示
         plt.ion()#ここはコピペ
-        self._figure, self._ax = plt.subplots(figsize=(12,7.5))#ここはコピペ
-        if legend:
-            self._figure.subplots_adjust(right=0.8,left=0.1,top=0.95,bottom=0.1)
-        else:
-            self._figure.subplots_adjust(right=0.9,left=0.1,top=0.9,bottom=0.1)
+        self._figure, self._ax = plt.subplots(figsize=(9,6))#ここはコピペ
+
+
 
         if xlog:
             plt.xscale('log')#横軸をlogスケールに
@@ -131,9 +129,13 @@ class PlotWindow():
                 if self.legend:
                     if self._count_label>20:
                         ncol=2
+                        self._figure.set_size_inches(11.5,6)
+                        self._figure.subplots_adjust(right=0.7,left=0.1,top=0.95,bottom=0.1)
                     else:
                         ncol=1
-                    self._ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0, fontsize=14,ncol=ncol)
+                        self._figure.set_size_inches(10,6)
+                        self._figure.subplots_adjust(right=0.8,left=0.1,top=0.95,bottom=0.1)
+                    self._ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0, fontsize=12,ncol=ncol)
                 
                 
             else:#2回目以降は色をキーにして辞書からLineObjをとってくる
