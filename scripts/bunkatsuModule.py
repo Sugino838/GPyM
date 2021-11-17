@@ -25,7 +25,7 @@ def heating_cooling_split(data,T_index,sample_and_cutout_num=(150,120),step=10,t
         温度が格納されている場所のインデックス(0始まり)
 
     sample_num : (int,int)
-        温度変化を判断するためのサンプル数
+        温度変化を判断するためのサンプル数と閾値
         1つ目のintは温度変化を判定するために使用するプロット点の数
         2つ目のintは昇温降温を判断するための閾値(N個の点それぞれについて前の点より温度が上がっていれば+1,下がっていれば-1,絶対値がthreshold以下なら0で合計値がこのint以上なら昇温または降温とする)
 
@@ -304,6 +304,36 @@ def create_file(filepath,data,label=""):
 
 
 def TMR_bunkatsu(filepath,T_index,f_index,freq_num=16,sample_and_cutout_num=(150,120),step=10,threshold=0):
+    """
+    TMR用の分割関数.
+
+    Parameter
+    __________________________
+
+    filepath : string
+        分割元のファイルのパス
+
+    T_index : int
+        分割元のファイルの温度値の列番号(左から0始まり)
+
+    f_index : int
+        分割元のファイルの周波数値の列番号(左から0始まり)
+
+    freq_num : int
+        周波数の分割数
+
+    sample_and_cutout_num : (int,int)
+        1つ目のintは温度変化を判定するために使用するプロット点の数
+        2つ目のintは昇温降温を判断するための閾値(N個の点それぞれについて前の点より温度が上がっていれば+1,下がっていれば-1,絶対値がthreshold以下なら0で合計値がこのint以上なら昇温または降温とする)
+
+    step : int
+        昇温降温判定でstep分離れたプロットと温度比較を行う.
+
+    threshold : float
+        昇温降温判定でthreshold以下の温度変化は温度変化なしとみなす
+
+    """
+
     print("bunkatsu start...")
     data,filename,dirpath,label=file_open(filepath)#ファイルを開いて配列として取得
     count=0

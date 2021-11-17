@@ -9,7 +9,7 @@ import utilityModule as util
 from importlib.util import spec_from_loader, module_from_spec
 from importlib.machinery import SourceFileLoader 
 import ctypes
-from utilityModule import GPyMException
+from utilityModule import GPyMException,printlog,inputlog
 
 #簡易編集モードをOFFにするためのおまじない
 kernel32 = ctypes.windll.kernel32
@@ -22,6 +22,22 @@ SHERED_SETTINGS_DIR=None #共有設定フォルダのパス
 logger=util.mklogger(__name__)
 
 def main():
+    """
+    測定マクロを動かすための準備をするスクリプト
+
+    実装としては
+
+    定義ファイル選択
+    ↓
+    測定マクロ選択
+    ↓
+    測定マクロ読み込み
+    ↓
+    必要な関数(updateなど)があるか確認
+    ↓
+    measurementManager._measure_startを実行
+
+    """
     #sys.path.append(os.path.dirname(sys.executable))
 
     path_deffilepath=TEMPDIR+"\\deffilepath"#前回の定義ファルのパスが保存されているファイル
@@ -66,7 +82,7 @@ def main():
         f.write(macroname)
 
 
-    print("macro : "+macroname)
+    printlog("macro : "+macroname)
     macroname=os.path.splitext(macroname)[0]#ファイル名から拡張子をとる
 
     #importlibを使って動的にpythonファイルを読み込む
@@ -131,15 +147,13 @@ def main():
 
     if UNDIFINE_WARNING !="":
         UNDIFINE_WARNING=UNDIFINE_WARNING[:-2]
-        print("UNDEFINED FUNCTION : "+UNDIFINE_WARNING)
+        printlog("UNDEFINED FUNCTION : "+UNDIFINE_WARNING)
 
     mm._set_variables(datadir=datadir,tempdir=tempdir,file_label=data_label,shared_settings_dir=SHERED_SETTINGS_DIR)
 
     os.chdir(macrodir)#カレントディレクトリを測定マクロ側に変更
 
     mm._measure_start(start=target.start,update=target.update,end=target.end,on_command=target.on_command,bunkatsu=target.bunkatsu)#測定開始
-    
-
     
 
 
@@ -149,47 +163,26 @@ if __name__=="__main__":
         os.mkdir("TEMP")
     TEMPDIR=filedir+"\\TEMP"
 
-    if not os.path.isdir("SHERED_SETTINGS"):#TEMPDIRが無ければつくる
+    if not os.path.isdir("SHERED_SETTINGS"):#SHERED_SETTINGSが無ければつくる
         os.mkdir("SHERED_SETTINGS")
-    
     SHERED_SETTINGS_DIR=filedir+"\\SHERED_SETTINGS"
+
+    
+    util.set_LOG(TEMPDIR+"\\LOG.txt")
 
 
 
     try:
         main()
     except Exception as e:
+        util.output_ErrorLog(TEMPDIR+"\\ERRORLOG.txt",e)
         import traceback
-
-
-        #エラーをログファイルに書き出す処理
-        loglist=list(traceback.TracebackException.from_exception(e).format())
-        log=""
-        for l in loglist:
-            log=log+l+"\n"
-        prelog=[]
-        if os.path.isfile(TEMPDIR+"\\ERRORLOG.txt"):
-            with open (TEMPDIR+"\\ERRORLOG.txt",mode="r",encoding="utf-8") as f: #過去のエラー取得
-                while True:
-                    line=f.readline()
-                    if line=="":
-                        break
-                    prelog.append(line)
-        with open(TEMPDIR+"\\ERRORLOG.txt",mode="w",encoding="utf-8") as f: #今回のエラーを日付と一緒に書き出し
-            import datetime
-            datetime=datetime.datetime.now()
-            f.write("ERROR - "+str(datetime.year)+"-"+str(datetime.month)+"-"+str(datetime.day)+"-"+str(datetime.hour)+":"+str(datetime.minute)+"\n\n")#日時情報
-            f.write(log)
-            f.write("\n\n\n\n\n")
-
-            #過去のエラーも1000行分は残す
-            log_max=1000
-            num=log_max if len(prelog) >log_max else len(prelog)
-
-            for i in range(num):
-                f.write(prelog[i])
-
 
         if type(e) is not GPyMException:#自分で設定したエラー以外はコンソールウィンドウにエラーログを表示
             traceback.print_exc()#エラー表示
             input("__Error__")#コンソールウィンドウが落ちないように入力待ちを入れる
+    else:
+        util.cut_LOG()
+    
+
+    

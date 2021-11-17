@@ -15,7 +15,13 @@ from enum import Enum,auto
 from concurrent.futures import ThreadPoolExecutor
 import pyperclip
 from utilityModule import GPyMException
+from utilityModule import printlog,inputlog
 
+"""
+基本的にアンダーバー(_)が先頭についている関数､変数は外部からアクセスすることを想定していません. どうしてもという場合にだけアクセスしてください
+
+アンダーバー2つ(__)が先頭についている関数､変数ははマンダリングされており､アンダーバー1つのもの以上に外部からアクセスしにくくしています(やろうとすればできる)
+"""
 
 
 class State(Enum):
@@ -40,6 +46,11 @@ __command=None
 __repeat=False
 
 def _measure_start(start,update,end,on_command,bunkatsu):
+    """
+    測定のメインとなる関数. 測定マクロに書かれた各関数はMAIN.pyによってここに渡されて
+    ここでそれぞれの関数を適切なタイミングで呼んでいる
+
+    """
     global __state
     __state=State.READY
 
@@ -68,7 +79,7 @@ def _measure_start(start,update,end,on_command,bunkatsu):
         cmthr.start()
 
 
-    print("measuring start...")
+    printlog("measuring start...")
     __state=State.UPDATE
     global __command
     while True:#測定終了までupdateを回す
@@ -77,11 +88,11 @@ def _measure_start(start,update,end,on_command,bunkatsu):
         if __command is None:
             update()
         else:
-            on_command(__command)
+            on_command(__command) #コマンドが入っていればコマンドを呼ぶ
             __command=None
 
 
-    print("measurement has finished...")
+    printlog("measurement has finished...")
 
     if end is not None:
         __state=State.END
@@ -121,7 +132,7 @@ def _end():
     """
     def wait_enter():#コンソール側の終了
         nonlocal endflag,windowclose #nonlocalを使うとクロージャーになる
-        input("enter and close window...") #エンターを押したら次へ進める
+        inputlog("enter and close window...") #エンターを押したら次へ進める
         endflag=True
         windowclose=True
     def wait_closewindow():#グラフウィンドウからの終了
@@ -146,8 +157,9 @@ def _end():
 
     while True:
         if endflag:
-            if not windowclose: __window_process.terminate()
-            sys.exit()
+            if not windowclose: 
+                __window_process.terminate()
+            break
         time.sleep(0.05)
     
 
@@ -157,7 +169,7 @@ def _wait_command_input():#終了コマンドの入力待ち, これは別スレ
     while True:
         isf=__isfinish.value
         if msvcrt.kbhit() and isf==0: #入力が入って初めてinputが動くように(inputが動くとその間ループを抜けられないので)
-            command=input()
+            command=inputlog()
             global __command
             __command=command
             while __command is not None:
@@ -173,6 +185,18 @@ def _wait_command_input():#終了コマンドの入力待ち, これは別スレ
 
 
 def set_calibration(filepath_calb=None):#プラチナ温度計の抵抗値を温度に変換するためのファイルを読み込み
+    """
+    キャリブレーションファイルの2列目をx,1列目をyとして線形補間関数を作る.
+    基本的に引数は使わない.
+    引数が無いときはSHARED_SETTINGSフォルダーにある標準のキャリブレーションファイルを用いる. 
+
+    Parameter
+    __________________________
+
+    filepath_calb : string
+        キャリブレーションファイルのパス. 基本的にはこの引数はわたさない
+
+    """
 
     if filepath_calb is not None:
         if not os.path.isfile(filepath_calb):
@@ -216,9 +240,11 @@ def set_calibration(filepath_calb=None):#プラチナ温度計の抵抗値を温
                 pass
 
     calibfilename=os.path.split(filepath_calb)[1]
-    print("calibration :",calibfilename)
+    printlog("calibration : "+calibfilename)
     global __interpolate_func
     __interpolate_func = interpolate.interp1d(x,y) # 線形補間関数定義
+
+    return calibfilename
 
 def calibration(x):
     """
@@ -244,6 +270,10 @@ def set_label(label):
     __user_label=__user_label+label
 
 def _set_file(bunkatsu):#ファイルの作成,準備
+
+    """
+    フォルダが無ければエラーを出し､あれば新規でファイルを作り､__savefileに代入
+    """
 
     if not os.path.isdir(__datadir):#フォルダの存在確認
         raise util.create_error(__datadir+"のフォルダにアクセスしようとしましたが､存在しませんでした",__logger)
@@ -273,6 +303,12 @@ def _set_file(bunkatsu):#ファイルの作成,準備
 
 
 def _run_window():#グラフと終了コマンド待ち処理を走らせる
+    """
+    GPyMではマルチプロセスを用いて測定プロセスとは別のプロセスでグラフの描画を行う.
+
+    Pythonのマルチプロセスでは必要な値はプロセスの作成時に渡しておかなくてはならないので､(例外あり)
+    ここではマルチプロセスの起動と必要な引数の受け渡しを行う.
+    """
     manager = Manager() 
     global __share_list,__isfinish,__lock_process
     __share_list=manager.list()#プロセス間で共有できるリスト
@@ -281,12 +317,36 @@ def _run_window():#グラフと終了コマンド待ち処理を走らせる
     #グラフ表示は別プロセスで実行する
     global __window_process
     __window_process=Process(target=windowModule.exec,args=(__share_list,__isfinish,__lock_process,__plot_info))
-    __window_process.daemon=True
-    __window_process.start()
+    __window_process.daemon=True#プロセスのデーモン化
+    __window_process.start()#マルチプロセス実行
 
 
 
 def set_plot_info(line=False,xlog=False,ylog=False,renew_interval=1,legend=False,flowwidth=0):#プロット情報の入力
+    """
+    グラフ描画プロセスに渡す値はここで設定する.
+    __plot_infoが辞書型なのはアンパックして引数に渡すため
+
+    Parameter
+    __________________________
+
+    line: bool
+        プロットに線を引くかどうか
+
+    xlog,ylog :bool
+        対数軸にするかどうか
+
+    renew_interval : float (>0)
+        グラフの更新間隔(秒)
+
+    legend : bool
+        凡例をつけるか. (凡例の名前はlabelの値)
+
+    flowwidth : float (>0)
+        これが0より大きい値のとき. グラフの横軸は固定され､横にプロットが流れるようなグラフになる.
+
+    """
+
     if __state!=State.READY and __state!=State.START:
         __logger.warning(sys._getframe().f_code.co_name+"はstart関数内で用いてください")
     if type(line) is not bool:
@@ -311,6 +371,20 @@ def set_plot_info(line=False,xlog=False,ylog=False,renew_interval=1,legend=False
 
 
 def save_data(data):#データ保存
+    """
+    引数のデータをファイルに書き込む. 
+    この関数が呼ばれるごとに書き込みの反映( __savefile.flush)をおこなっているので途中で測定が落ちてもそれまでのデータは残るようになっている.
+
+    stringの引数にも対応しているので､測定のデータは測定マクロ側でstringで保持しておいて最後にまとめて書き込むことも可能.
+
+    Parameter
+    __________________________
+
+    data : tuple or string
+        書き込むデータ
+
+    """
+
     if __state!=State.UPDATE and __state!=State.END:
         __logger.warning(sys._getframe().f_code.co_name+"はupdateもしくはend関数内で用いてください")
     if type(data) is not str and not isinstance(data, tuple):
@@ -327,12 +401,30 @@ def save_data(data):#データ保存
                 text+=","+str(data[i])
         text+="\n"#末尾に改行記号
         __savefile.write(text)#書き込み
-    __savefile.flush()#反映. この処理はやや重いので高速化したいならこれを呼ばずに最後にcloseで一気に反映させるのが良い
+    __savefile.flush()#反映. 
     
     
 
 
 def plot_data(x,y,label="default"):#データをグラフにプロット
+    """
+    データをグラフ描画プロセスに渡す. 
+    labelが変わると色が変わる
+    __share_listは測定プロセスとグラフ描画プロセスの橋渡しとなるリストでバッファーの役割をする
+
+
+    Parameter
+    __________________________
+
+    x,y : float
+        プロットのx,y座標
+
+    label : string or float
+        プロットの識別ラベル.
+        これが同じだと同じ色でプロットしたり､線を引き設定のときは線を引いたりする.
+
+    """
+
     if __state!=State.UPDATE:
         __logger.warning(sys._getframe().f_code.co_name+"はstartもしくはupdate関数内で用いてください")
     data=(x,y,label)
@@ -341,6 +433,16 @@ def plot_data(x,y,label="default"):#データをグラフにプロット
     __lock_process.release()#ロック解除
 
 def repeat_measurement(closewindow=True):#測定の繰り返しを伝える関数
+    """
+    測定を繰り返す場合はそのたびに呼ぶ.
+
+    Parameter
+    __________________________
+
+    closewindow : bool
+        各測定の終了でグラフウィンドウを閉じるかどうか.
+
+    """
     global __repeat,__closewindow_repeat
     __repeat=True
     __closewindow_repeat=closewindow
@@ -350,7 +452,7 @@ def __do_repeat(start,update,end,on_command,bunkatsu):#実際に測定を繰り�
     global __repeat
     if __closewindow_repeat:
         __window_process.terminate()
-    print("next measurement start...")
+    printlog("next measurement start...")
     __repeat=False
     _measure_start(start,update,end,on_command,bunkatsu)
 

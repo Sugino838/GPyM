@@ -4,7 +4,7 @@ import os
 import utilityModule as util
 from tkinter import Tk
 import sys
-
+from utilityModule import printlog,inputlog
 
 def get_filename(text="file name is > "):
     """
@@ -20,10 +20,10 @@ def get_filename(text="file name is > "):
     wordok=False
     while not wordok:
 
-        filename=input(text)
+        filename=inputlog(text)
         for ng in ngwords:
             if ng in filename:
-                print("WARNING : 以下の文字列はファイル名に使えません. 入力し直してください")
+                printlog("WARNING : 以下の文字列はファイル名に使えません. 入力し直してください")
                 for w in ngwords:
                     print(w,end="")
                 print("")
@@ -70,7 +70,7 @@ def read_defdir(dirpath=None,filename=None):
 
     tk.destroy() #これとtk=Tk()がないと謎のウィンドウが残って邪魔になる
 
-    print("define file : "+os.path.basename(defpath))
+    printlog("define file : "+os.path.basename(defpath))
 
     datadir=None
     macrodir=None
@@ -138,7 +138,7 @@ def read_defdir(dirpath=None,filename=None):
 
 def input_num(text=""):
     while True:
-        num_str=input(text)
+        num_str=inputlog(text)
         num_str="".join(num_str.split())
         
         try:

@@ -43,15 +43,6 @@ def get_instrument(address):
     return inst
 
 
-def get_volt(instrument):
-    try:
-        volt= instrument.query('VOLT?')
-    except Exception as e:
-        raise util.create_error("機器が'VOLT?'に応答しません",logger,e)
-
-    return volt
-    
-
 
 def command_check(inst,*commands):
     for command in commands:
