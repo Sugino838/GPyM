@@ -136,50 +136,7 @@ def read_defdir(dirpath=None,filename=None):
     return defpath,datadir,macrodir,tempdir #MACRODIRは定義されてなくても通す
 
 
-def input_num(text=""):
-    while True:
-        num_str=inputlog(text)
-        num_str="".join(num_str.split())
-        
-        try:
-            num=float(num_str)
-        except Exception:
-            si_prefixes_str=num_str[-1:] 
-            num_str=num_str[:-1]
-            si_prefixes=None
-            if si_prefixes_str=="k":
-                si_prefixes=1.0e+3
-            elif si_prefixes_str=="M":
-                si_prefixes=1.0e+6
-            elif si_prefixes_str=="G":
-                si_prefixes=1.0e+9
-            elif si_prefixes_str=="T":
-                si_prefixes=1.0e+12
-            elif si_prefixes_str=="P":
-                si_prefixes=1.0e+15
-            elif si_prefixes_str=="E":
-                si_prefixes=1.0e+18
-            elif si_prefixes_str=="m":
-                si_prefixes=1.0e-3
-            elif si_prefixes_str=="μ":
-                si_prefixes=1.0e-6
-            elif si_prefixes_str=="n":
-                si_prefixes=1.0e-9
-            elif si_prefixes_str=="p":
-                si_prefixes=1.0e-12
-            elif si_prefixes_str=="f":
-                si_prefixes=1.0e-15
-            elif si_prefixes_str=="a":
-                si_prefixes=1.0e-18
-        
-            try:
-                num=float(num_str)*si_prefixes
-            except Exception:
-                print("入力を数値に変換できませんでした. もう一度入力してください")
-                continue
-        break
 
-    return num
 
 if __name__=="__main__":
     print(input_num("input>"))

@@ -81,10 +81,12 @@ def set_LOG(logpath):
     __LOGFILE.write("\n\n\n\n\n"+date)
 
 
-def printlog(text):
-    print(text)
+def printlog(text,isprint=True):
+    if isprint:
+        print(text)
     __LOGFILE.write(text+"\n")
     __LOGFILE.flush()
+
 
 def inputlog(text=""):
     value =input(text)
