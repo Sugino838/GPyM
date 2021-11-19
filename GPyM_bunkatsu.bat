@@ -4,10 +4,10 @@ echo %CD%にはscriptsという名前のフォルダーが存在しません
 set /p __=
 exit /b
 )
-if not exist BUNKATSU_ONLY.py (
-echo %CD%\scriptsにはBUNKATSU_ONLY.pyが存在しません
+if not exist scripts\MAIN.py (
+echo %CD%\scriptsにはMAIN.pyが存在しません
 set /p __=
 exit /b
 )
 echo on
-py scripts\BUNKATSU_ONLY.py 
+py scripts\MAIN.py BUNKATSU

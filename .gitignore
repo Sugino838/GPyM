@@ -1,10 +1,5 @@
-Example/
-TEMP/
+/Example/
+/TEMP/
+/TEST/
+/test/
 __pycache__/
-エラーと解決法.txt
-仕様書.txt
-GPyM.exe
-GPyM_bunkatsu.exe
-py
-icons/
-SHERED_SETTINGS/

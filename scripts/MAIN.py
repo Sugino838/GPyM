@@ -21,6 +21,10 @@ TEMPDIR=None#TEMPフォルダーのパス
 SHERED_SETTINGS_DIR=None #共有設定フォルダのパス
 logger=util.mklogger(__name__)
 
+
+
+
+
 def main():
     """
     測定マクロを動かすための準備をするスクリプト
@@ -128,6 +132,9 @@ def main():
         logger.error(target.__name__+".bunkatsuには引数を設定してはいけません")
         UNDIFINE_ERROR=True
                
+    if UNDIFINE_WARNING !="":
+        UNDIFINE_WARNING=UNDIFINE_WARNING[:-2]
+        printlog("UNDEFINED FUNCTION : "+UNDIFINE_WARNING)
 
     
     if issubclass(target.Data,tuple):
@@ -145,9 +152,6 @@ def main():
         input("エラーのため終了します...")
         sys.exit()
 
-    if UNDIFINE_WARNING !="":
-        UNDIFINE_WARNING=UNDIFINE_WARNING[:-2]
-        printlog("UNDEFINED FUNCTION : "+UNDIFINE_WARNING)
 
     mm._set_variables(datadir=datadir,tempdir=tempdir,file_label=data_label,shared_settings_dir=SHERED_SETTINGS_DIR)
 
@@ -157,7 +161,58 @@ def main():
     
 
 
+
+def bunkatsu_only():
+
+    tk = Tk()
+    print("分割マクロ選択...")
+    typ = [('pythonファイル','*.py *.gpym')] 
+    macroPath=tkfd.askopenfilename(filetypes = typ,title="分割マクロを選択してください") #ファイルダイアログでファイルを取得 
+
+    macrodir,macroname=os.path.split(macroPath)
+    macroname=os.path.splitext(macroname)[0]
+    os.chdir(macrodir)
+    print("macro : "+macroname)
+
+
+    def hoge(address):
+        return None
+    import GPIBModule
+    GPIBModule.get_instrument=hoge#GPIBモジュールの関数を書き換えてGPIBがつながって無くてもエラーが出ないようにする
+    print("INFO : you can't use GPIB.get_instrument in GPyM_bunkatsu")
+    print("INFO : you can't use most of measurementManager's methods in GPyM_bunkatsu")
+
+
+    #bunkatsufunc=get_bunkatsu_func(macroPath) #マクロからbunkatsu関数部分だけを抜き出し
+     
+    #importlibを使って動的にpythonファイルを読み込む
+    spec = spec_from_loader(macroname, SourceFileLoader(macroname,macroPath))
+    target = module_from_spec(spec)
+    spec.loader.exec_module(target)
+       
+
+    if not hasattr(target, 'bunkatsu'):
+        raise util.create_error(target.__name__+".pyにはbunkatsu関数を定義する必要があります",logger)
+    elif target.bunkatsu.__code__.co_argcount!=1:
+        raise util.create_error(target.__name__+".bunkatsuには1つの引数が必要です",logger)
+
+
+    print("分割ファイル選択...")
+    typ = [('データファイル','*.txt *dat')] 
+    filePath=tkfd.askopenfilename(filetypes = typ,title="分割するファイルを選択してください") #ファイルダイアログでファイルを取得
+    tk.destroy() #これとtk=Tk()がないと謎のウィンドウが残って邪魔になる
+
+    
+    mm._set_variables(datadir=None,tempdir=None,file_label=None,shared_settings_dir=SHERED_SETTINGS_DIR)
+    target.bunkatsu(filePath)
+    input()
+    
+
+
+
+
 if __name__=="__main__":
+
     filedir=os.getcwd()
     if not os.path.isdir("TEMP"):#TEMPDIRが無ければつくる
         os.mkdir("TEMP")
@@ -167,13 +222,24 @@ if __name__=="__main__":
         os.mkdir("SHERED_SETTINGS")
     SHERED_SETTINGS_DIR=filedir+"\\SHERED_SETTINGS"
 
+    util.set_LOG(TEMPDIR+"\\LOG.txt")#ログをセット
     
-    util.set_LOG(TEMPDIR+"\\LOG.txt")
 
-
-
+    args = sys.argv
+    if len(args)==1:
+        mode=input("mode is > ")
+    else:
+        mode=args[1]
     try:
-        main()
+        
+        if mode=="MEAS":
+            main()
+        elif mode=="BUNKATSU":
+            bunkatsu_only()
+        else:
+            input("コマンドが違います")
+            raise Exception()
+
     except Exception as e:
         util.output_ErrorLog(TEMPDIR+"\\ERRORLOG.txt",e)
         import traceback

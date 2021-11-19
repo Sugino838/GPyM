@@ -242,7 +242,7 @@ def set_calibration(filepath_calb=None):#プラチナ温度計の抵抗値を温
     calibfilename=os.path.split(filepath_calb)[1]
     printlog("calibration : "+calibfilename)
     global __interpolate_func
-    __interpolate_func = interpolate.interp1d(x,y) # 線形補間関数定義
+    __interpolate_func = interpolate.interp1d(x,y,fill_value='extrapolate') # 線形補間関数定義
 
     return calibfilename
 
