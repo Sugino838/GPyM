@@ -204,7 +204,7 @@ def set_calibration(filepath_calb=None):#プラチナ温度計の抵抗値を温
     else:
         path=__shared_settings_dir+"/calibration_file"
         if not os.path.isdir(path):
-            raise util.create_error(__share_list+" にcalibration_fileフォルダーが存在しません",__logger)
+            raise util.create_error(__share_list+" にcalibration_fileフォルダーが存在しません. \n"+__share_list+" にcalibration_fileフォルダーを新規作成した後でフォルダー内にキャリブレーションファイルを置きもう一度実行してください. ",__logger)
         import glob
         files = glob.glob(path+"/*")
 
@@ -215,7 +215,7 @@ def set_calibration(filepath_calb=None):#プラチナ温度計の抵抗値を温
             raise util.create_error(path+"内に2つ以上のファイルを置いてはいけません",__logger)
         filepath_calb=files[0]
 
-
+    
     global __interpolate_func
     with open(filepath_calb,'r',encoding=util.get_encode_type(filepath_calb)) as file:
 
@@ -240,7 +240,7 @@ def set_calibration(filepath_calb=None):#プラチナ温度計の抵抗値を温
                 pass
 
     calibfilename=os.path.split(filepath_calb)[1]
-    printlog("calibration : "+calibfilename)
+    printlog("calibration : "+filepath_calb)
     global __interpolate_func
     __interpolate_func = interpolate.interp1d(x,y,fill_value='extrapolate') # 線形補間関数定義
 

@@ -26,10 +26,13 @@ def get_encode_type( file_path ) :#テキストファイルの文字コードを
             if prober.get_confidence()>confidence:
                 encode_type=prober.charset_name
                 confidence=prober.get_confidence()
+
+    
+    if encode_type=="ascii": #日本語が入っていないコードはasciiもutf-8もSHIFT_JISも一緒なのでasciiと判断されるがasciiに日本語はないのでutf-8にする
+        encode_type="utf-8"
     
     
     return encode_type
-
 
 
 
@@ -84,6 +87,7 @@ def set_LOG(logpath):
 def printlog(text,isprint=True):
     if isprint:
         print(text)
+    
     __LOGFILE.write(text+"\n")
     __LOGFILE.flush()
 
