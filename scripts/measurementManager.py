@@ -44,6 +44,7 @@ __logger=util.mklogger(__name__)
 
 __command=None
 __repeat=False
+__nograph=False
 
 def _measure_start(start,update,end,on_command,bunkatsu):
     """
@@ -67,7 +68,9 @@ def _measure_start(start,update,end,on_command,bunkatsu):
         start()
 
     _set_file(bunkatsu)#ファイル作成
-    _run_window()#グラフウィンドウの立ち上げ
+
+    if not __nograph:
+        _run_window()#グラフウィンドウの立ち上げ
 
     
     while msvcrt.kbhit():#既に入っている入力は消す
@@ -474,3 +477,27 @@ def _input_filename():#ファイル名入力
     filename,_datelabel,filename_withoutdate=inp.get_filename()
     _set_filename(filename_withoutdate)
     return filename
+
+
+
+def graph_window_off():
+    global __nograph
+    __nograph=True
+
+    manager = Manager()
+    global __share_list,__isfinish,__lock_process
+    __share_list=manager.list()
+    __isfinish=Value("i",0)
+    __lock_process=Lock()
+
+    class damy_window_proess():
+        def join(self):
+            pass
+        def terminate(self):
+            pass
+        def start(self):
+            pass
+
+    global __window_process
+    __window_process=damy_window_proess()
+
