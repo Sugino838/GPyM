@@ -346,7 +346,7 @@ def TMR_bunkatsu(filepath,T_index,f_index,freq_num=16,sample_and_cutout_num=(150
         new_filepath=new_dir+"\\"+filename+"_"+str(count)+"_"+state+"_all.txt"
         create_file(filepath=new_filepath,data=split_data,label=label)
 
-        for split_split_data in cyclic_split(split_data,cycle_num=14):#周波数でさらに分割
+        for split_split_data in cyclic_split(split_data,cycle_num=freq_num):#周波数でさらに分割
 
 
             freq=split_split_data[0][f_index]
