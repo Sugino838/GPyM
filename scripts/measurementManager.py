@@ -44,6 +44,7 @@ __logger=util.mklogger(__name__)
 
 __command=None
 __repeat=False
+__nograph=False
 
 def _measure_start(start,update,end,on_command,bunkatsu):
     """
@@ -67,7 +68,9 @@ def _measure_start(start,update,end,on_command,bunkatsu):
         start()
 
     _set_file(bunkatsu)#ファイル作成
-    _run_window()#グラフウィンドウの立ち上げ
+
+    if not __nograph:
+        _run_window()#グラフウィンドウの立ち上げ
 
     
     while msvcrt.kbhit():#既に入っている入力は消す
@@ -204,7 +207,7 @@ def set_calibration(filepath_calb=None):#プラチナ温度計の抵抗値を温
     else:
         path=__shared_settings_dir+"/calibration_file"
         if not os.path.isdir(path):
-            raise util.create_error(__share_list+" にcalibration_fileフォルダーが存在しません",__logger)
+            raise util.create_error(__share_list+" にcalibration_fileフォルダーが存在しません. \n"+__share_list+" にcalibration_fileフォルダーを新規作成した後でフォルダー内にキャリブレーションファイルを置きもう一度実行してください. ",__logger)
         import glob
         files = glob.glob(path+"/*")
 
@@ -215,7 +218,7 @@ def set_calibration(filepath_calb=None):#プラチナ温度計の抵抗値を温
             raise util.create_error(path+"内に2つ以上のファイルを置いてはいけません",__logger)
         filepath_calb=files[0]
 
-
+    
     global __interpolate_func
     with open(filepath_calb,'r',encoding=util.get_encode_type(filepath_calb)) as file:
 
@@ -240,7 +243,7 @@ def set_calibration(filepath_calb=None):#プラチナ温度計の抵抗値を温
                 pass
 
     calibfilename=os.path.split(filepath_calb)[1]
-    printlog("calibration : "+calibfilename)
+    printlog("calibration : "+filepath_calb)
     global __interpolate_func
     __interpolate_func = interpolate.interp1d(x,y,fill_value='extrapolate') # 線形補間関数定義
 
@@ -474,3 +477,27 @@ def _input_filename():#ファイル名入力
     filename,_datelabel,filename_withoutdate=inp.get_filename()
     _set_filename(filename_withoutdate)
     return filename
+
+
+
+def graph_window_off():
+    global __nograph
+    __nograph=True
+
+    manager = Manager()
+    global __share_list,__isfinish,__lock_process
+    __share_list=manager.list()
+    __isfinish=Value("i",0)
+    __lock_process=Lock()
+
+    class damy_window_proess():
+        def join(self):
+            pass
+        def terminate(self):
+            pass
+        def start(self):
+            pass
+
+    global __window_process
+    __window_process=damy_window_proess()
+
