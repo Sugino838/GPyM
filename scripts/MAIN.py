@@ -10,6 +10,7 @@ from importlib.util import spec_from_loader, module_from_spec
 from importlib.machinery import SourceFileLoader 
 import ctypes
 from utilityModule import GPyMException,printlog,inputlog
+import inspect
 
 #簡易編集モードをOFFにするためのおまじない
 kernel32 = ctypes.windll.kernel32
@@ -137,7 +138,7 @@ def main():
         printlog("UNDEFINED FUNCTION : "+UNDIFINE_WARNING)
 
     
-    if issubclass(target.Data,tuple):
+    if hasattr(target, 'Data') and inspect.isclass(target.Data) and issubclass(target.Data,tuple):
         data_label=""
         count=1
         for s in target.Data._fields:
@@ -145,8 +146,9 @@ def main():
             count+=1
         data_label=data_label[:-2]
     else:
-        logger.error("Dataをnamedtupleで定義してください")
-        UNDIFINE_ERROR=True
+        logger.warning("namedtuple型のクラス'Data'が存在しません")
+        data_label=""
+
 
     if UNDIFINE_ERROR:
         input("エラーのため終了します...")
