@@ -1,7 +1,8 @@
 import json
 import logging
 from datetime import datetime
-from logging import FileHandler, Formatter, Logger, config, getLogger
+from logging import Formatter, Logger, config, getLogger
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 from chardet.universaldetector import UniversalDetector
@@ -55,7 +56,7 @@ class GPyMException(Exception):
 
 
 # TODO (sakakibara): 将来的に消す
-def create_error(msg: object, logger: Logger, e=None):
+def create_error(msg: str, logger: Logger, e=None):
     if e is not None:
         logger.exception(e)
     else:
@@ -74,7 +75,7 @@ def set_LOG(path: str):
     """
     root loggerに新しくFileHandlerをついかする
     """
-    handler = FileHandler(filename=path, encoding="utf-8")
+    handler = RotatingFileHandler(filename=path, encoding="utf-8", maxBytes=1024 * 100)
     fmt = Formatter(
         "[%(asctime)s] [%(levelname)8s] [%(filename)s:%(lineno)s %(funcName)s]  %(message)s"
     )
@@ -102,5 +103,5 @@ def cut_LOG():
 
 
 # TODO (sakakibara): 将来的に消す
-def output_ErrorLog(_errorlogpath, e):
+def output_ErrorLog(_errorlogpath, e: Exception):
     logging.exception(e)
