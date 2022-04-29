@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "disable_existing_loggers": false,
+  "formatters": {
+    "default": {
+      "format": "[%(asctime)s] [%(levelname)8s] [%(filename)s:%(lineno)s %(funcName)s]  %(message)s"
+    }
+  },
+  "handlers": {
+    "consoleHandler": {
+      "class": "logging.StreamHandler",
+      "level": "WARNING",
+      "formatter": "default",
+      "stream": "ext://sys.stdout"
+    },
+    "fileHandler": {
+      "class": "logging.FileHandler",
+      "level": "INFO",
+      "formatter": "default",
+      "filename": "",
+      "encoding": "utf-8"
+    }
+  },
+  "root": {
+    "level": "INFO",
+    "handlers": ["consoleHandler", "fileHandler"]
+  }
+}

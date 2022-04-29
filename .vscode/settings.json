@@ -1,0 +1,14 @@
+{
+  "python.formatting.provider": "black",
+
+  "[python]": {
+    "editor.tabSize": 4,
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": true
+    }
+  },
+  "[json]": {
+    "editor.formatOnSave": true
+  }
+}
