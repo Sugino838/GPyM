@@ -1,160 +1,107 @@
-import sys
-import os
+import json
+import logging
+from datetime import datetime
+from logging import Formatter, Logger, config, getLogger
+from logging.handlers import RotatingFileHandler
+from pathlib import Path
+
 from chardet.universaldetector import UniversalDetector
-from logging import getLogger,DEBUG,WARNING,StreamHandler,Formatter
 
-def get_error_info(e):
-    """
-    エラーの情報を返す
-    """
-    exc_type, exc_obj, exc_tb = sys.exc_info()
-    fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-    return "%s, %s, %s" % (exc_type, fname, exc_tb.tb_lineno)
+with open("./log_config.json", "r") as f:
+    conf = json.load(f)
 
-def get_encode_type( file_path ) :#テキストファイルの文字コードを判別する. ほぼコピペ
+    # 月ごとに新しいファイルにログを書き出す
+    now = datetime.now()
+    filename = Path.home() / "GPyM" / "log" / f"{now.year}-{now.month}.log"
+    conf["handlers"]["fileHandler"]["filename"] = str(filename)
+
+    config.dictConfig(conf)
+
+
+# テキストファイルの文字コードを判別する. ほぼコピペ
+def get_encode_type(path: str) -> str:
     detector = UniversalDetector()
-    with open(file_path, mode= "rb" ) as f:
+    with open(path, mode="rb") as f:
         for binary in f:
-            detector.feed( binary )
+            detector.feed(binary)
             if detector.done:
                 break
     detector.close()
-    encode_type= detector.result[ "encoding" ]
-    confidence=0
-    for prober in detector._charset_probers:#誤認識を回避するためにutf-8かSHIFT_JISの可能性があればそっちに変更
-        if prober.charset_name=="utf-8" or prober.charset_name=="SHIFT_JIS":
-            if prober.get_confidence()>confidence:
-                encode_type=prober.charset_name
-                confidence=prober.get_confidence()
+    encode_type = detector.result["encoding"]
 
-    
-    if encode_type=="ascii": #日本語が入っていないコードはasciiもutf-8もSHIFT_JISも一緒なのでasciiと判断されるがasciiに日本語はないのでutf-8にする
-        encode_type="utf-8"
-    
-    
+    # 誤認識を回避するためにutf-8かSHIFT_JISの可能性があればそっちに変更
+    confidence = 0
+    for prober in detector._charset_probers:
+        if prober.charset_name == "utf-8" or prober.charset_name == "SHIFT_JIS":
+            if prober.get_confidence() > confidence:
+                encode_type = prober.charset_name
+                confidence = prober.get_confidence()
+
+    # 日本語が入っていないコードはasciiもutf-8もSHIFT_JISも一緒なので
+    # asciiと判断されるがasciiに日本語はないのでutf-8にする
+    if encode_type == "ascii":
+        encode_type = "utf-8"
+
     return encode_type
 
 
+# TODO (sakakibara): 将来的に消す
+# ロガーの作成
+def mklogger(logname: str):
+    return getLogger(logname)
 
 
-def mklogger(logname,level=WARNING):#ロガーの作成
-    logger = getLogger(logname)
-    logger.setLevel(level)
-    
-    handler = StreamHandler()
-    formatter = Formatter('[%(asctime)s] [%(levelname)8s] [%(filename)s:%(lineno)s %(funcName)s]  %(message)s')
-    handler.setFormatter(formatter)
-
-    logger.addHandler(handler)
-
-    return logger
-
-    
 class GPyMException(Exception):
     pass
 
 
-def create_error(errorlog,logger,e=None):#エラー表示
+# TODO (sakakibara): 将来的に消す
+def create_error(msg: str, logger: Logger, e=None):
     if e is not None:
-        print(get_error_info(e))
-        print(e)
-    
-    logger.error(errorlog,stacklevel=2)
+        logger.exception(e)
+    else:
+        logger.error(msg, stacklevel=2)
+
     input()
 
+    # エラーが既に発生している場合は何も返さないことで現在発生しているエラーをログに出せる
     if e is not None:
-        return #エラーが既に発生している場合は何も返さないことで現在発生しているエラーをログに出せる
+        return
     else:
-        return GPyMException(errorlog)
+        return GPyMException(msg)
 
 
-__LOGFILE=None
-__LOGPATH=None
-def set_LOG(logpath):
-    global __LOGFILE,__LOGPATH
-    __LOGPATH=logpath
-    if os.path.isfile(logpath):
-        __LOGFILE=open(logpath,mode="a",encoding=get_encode_type(logpath))
-    else:
-        __LOGFILE=open(logpath,mode="w",encoding="utf-8")
-
-    import datetime
-    date=datetime.datetime.now()
-    date=str(date.year)+"-"+str(date.month)+"-"+str(date.day)+"-"+str(date.hour)+":"+str(date.minute)+"\n\n"#日時情報
-    __LOGFILE.write("\n\n\n\n\n"+date)
+def set_LOG(path: str):
+    """
+    root loggerに新しくFileHandlerをついかする
+    """
+    handler = RotatingFileHandler(filename=path, encoding="utf-8", maxBytes=1024 * 100)
+    fmt = Formatter(
+        "[%(asctime)s] [%(levelname)8s] [%(filename)s:%(lineno)s %(funcName)s]  %(message)s"
+    )
+    handler.setFormatter(fmt)
+    logging.getLogger().addHandler(handler)
 
 
-def printlog(text,isprint=True):
+# TODO (sakakibara): 将来的に消す
+def printlog(msg: str, isprint=True):
     if isprint:
-        print(text)
-    
-    __LOGFILE.write(text+"\n")
-    __LOGFILE.flush()
+        print(msg)
+    logging.info(msg)
 
 
-def inputlog(text=""):
-    value =input(text)
-    __LOGFILE.write(text+" "+value+"\n")
-    __LOGFILE.flush()
-    return value
+# TODO (sakakibara): 将来的に消す
+def inputlog(ask=""):
+    ans = input(ask)
+    logging.info(f"{ask}: {ans}")
+    return ans
 
+
+# TODO (sakakibara): 将来的に消す
 def cut_LOG():
-    linemax=10000
-    __LOGFILE.close()
-
-    lines=[]
-    with open(__LOGPATH,mode="r",encoding=get_encode_type(__LOGPATH)) as f:
-        
-        
-        while True:
-            line=f.readline()
-            if line=="":
-                break
-            lines.append(line)
-        
-    
-    if len(lines)>linemax:
-        lines=lines[-linemax:]
-        newlog=""
-        for l in lines:
-            newlog+=l
-        with open(__LOGPATH,mode="w",encoding="utf-8") as f:
-            f.write(newlog)
-        
-
-        
-
-def output_ErrorLog(errorlogpath,e):
-    import traceback
-    #エラーをログファイルに書き出す処理
-    loglist=list(traceback.TracebackException.from_exception(e).format())
-    log=""
-    for l in loglist:
-        log=log+l+"\n"
-    prelog=[]
-    if os.path.isfile(errorlogpath):
-        with open (errorlogpath,mode="r",encoding="utf-8") as f: #過去のエラー取得
-            while True:
-                line=f.readline()
-                if line=="":
-                    break
-                prelog.append(line)
-    with open(errorlogpath,mode="w",encoding="utf-8") as f: #今回のエラーを日付と一緒に書き出し
-        import datetime
-        datetime=datetime.datetime.now()
-        f.write("ERROR - "+str(datetime.year)+"-"+str(datetime.month)+"-"+str(datetime.day)+"-"+str(datetime.hour)+":"+str(datetime.minute)+"\n\n")#日時情報
-        f.write(log)
-        f.write("\n\n\n\n\n")
-
-        #過去のエラーも1000行分は残す
-        log_max=1000
-        num=log_max if len(prelog) >log_max else len(prelog)
-
-        for i in range(num):
-            f.write(prelog[i])
+    pass
 
 
-
-
-
-
+# TODO (sakakibara): 将来的に消す
+def output_ErrorLog(_errorlogpath, e: Exception):
+    logging.exception(e)
