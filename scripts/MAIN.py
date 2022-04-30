@@ -41,16 +41,16 @@ def main():
 
     datadir,macrodir_default,tempdir =read_deffile(path_deffile)#定義ファイル読み取り
 
-    macropath,macroname,macrodir=get_macropath(macrodir_default)
+    macropath,macroname,macrodir=get_macropath(macrodir_default)#マクロファイルの取得
 
-    macro,data_label=get_macro(macropath)
+    macro=get_macro(macropath)#マクロファイルからpythonマクロに変換
 
 
-    mm._set_variables(datadir=datadir,tempdir=tempdir,file_label=data_label,shared_settings_dir=vars.SHERED_SETTINGSDIR)
+    
 
     os.chdir(macrodir)#カレントディレクトリを測定マクロ側に変更
 
-    mm._measure_start(start=macro.start,update=macro.update,end=macro.end,on_command=macro.on_command,bunkatsu=macro.bunkatsu)#測定開始
+    mm._measure_start(macro)#測定開始
     
 
 def get_deffile():
@@ -237,12 +237,13 @@ def get_macro(macropath):#パスから各種関数を読み込み
     else:
         logger.error("Dataをnamedtupleで定義してください")
         UNDIFINE_ERROR=True
+    target._data_label=data_label
 
     if UNDIFINE_ERROR:
         input("エラーのため終了します...")
         sys.exit()
 
-    return target,data_label
+    return target
 
 def bunkatsu_only():
 

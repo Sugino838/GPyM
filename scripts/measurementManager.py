@@ -16,6 +16,7 @@ from concurrent.futures import ThreadPoolExecutor
 import pyperclip
 from utilityModule import GPyMException
 from utilityModule import printlog,inputlog
+import variables as vars
 
 """
 基本的にアンダーバー(_)が先頭についている関数､変数は外部からアクセスすることを想定していません. どうしてもという場合にだけアクセスしてください
@@ -46,12 +47,15 @@ __command=None
 __repeat=False
 __nograph=False
 
-def _measure_start(start,update,end,on_command,bunkatsu):
+def _measure_start(macro):
     """
     測定のメインとなる関数. 測定マクロに書かれた各関数はMAIN.pyによってここに渡されて
     ここでそれぞれの関数を適切なタイミングで呼んでいる
 
     """
+    global _data_label 
+    _data_label= macro._data_label
+
     global __state
     __state=State.READY
 
@@ -63,11 +67,11 @@ def _measure_start(start,update,end,on_command,bunkatsu):
     
     set_plot_info()#start内で呼ばれなかったときのためにここで一回呼んでおく
 
-    if start is not None:
+    if macro.start is not None:
         __state=State.START
-        start()
+        macro.start()
 
-    _set_file(bunkatsu)#ファイル作成
+    _set_file(macro.bunkatsu)#ファイル作成
 
     if not __nograph:
         _run_window()#グラフウィンドウの立ち上げ
@@ -76,7 +80,7 @@ def _measure_start(start,update,end,on_command,bunkatsu):
     while msvcrt.kbhit():#既に入っている入力は消す
         msvcrt.getwch()
 
-    if on_command is not None:
+    if macro.on_command is not None:
         cmthr=threading.Thread(target=_wait_command_input)
         cmthr.setDaemon(True)
         cmthr.start()
@@ -89,29 +93,29 @@ def _measure_start(start,update,end,on_command,bunkatsu):
         if __isfinish.value==1:
             break
         if __command is None:
-            flag=update()
+            flag=macro.update()
             if flag==False:__isfinish.value=1
         else:
-            on_command(__command) #コマンドが入っていればコマンドを呼ぶ
+            macro.on_command(__command) #コマンドが入っていればコマンドを呼ぶ
             __command=None
 
 
     printlog("measurement has finished...")
 
-    if end is not None:
+    if macro.end is not None:
         __state=State.END
-        end()
+        macro.end()
     
     __savefile.close()
     
-    if bunkatsu is not None:
+    if macro.bunkatsu is not None:
         __state=State.BUNKATSU
-        bunkatsu(__filepath)
+        macro.bunkatsu(__filepath)
     __state=State.ALLEND
     
 
     if __repeat:
-        __do_repeat(start,update,end,on_command,bunkatsu)
+        __do_repeat(macro.start,macro.update,macro.end,macro.on_command,macro.bunkatsu)
     else:
         _end()
 
@@ -119,12 +123,7 @@ def _measure_start(start,update,end,on_command,bunkatsu):
 
 
 
-def get_tempdir():
-    return __tempdir
-def get_datadir():
-    return __datadir
-def get_shared_settings_dir():
-    return __shared_settings_dir
+
 
 def finish():
     __isfinish.value=1
@@ -206,7 +205,7 @@ def set_calibration(filepath_calb=None):#プラチナ温度計の抵抗値を温
         if not os.path.isfile(filepath_calb):
             raise util.create_error("キャリブレーションファイル"+filepath_calb+"が存在しません. "+os.getcwd()+"で'"+filepath_calb+"'にアクセスしようとしましたが存在しませんでした.",__logger)
     else:
-        path=__shared_settings_dir+"/calibration_file"
+        path=vars.SHERED_SETTINGSDIR+"/calibration_file"
         if not os.path.isdir(path):
             raise util.create_error(__share_list+" にcalibration_fileフォルダーが存在しません. \n"+__share_list+" にcalibration_fileフォルダーを新規作成した後でフォルダー内にキャリブレーションファイルを置きもう一度実行してください. ",__logger)
         import glob
@@ -279,15 +278,15 @@ def _set_file(bunkatsu):#ファイルの作成,準備
     フォルダが無ければエラーを出し､あれば新規でファイルを作り､__savefileに代入
     """
 
-    if not os.path.isdir(__datadir):#フォルダの存在確認
-        raise util.create_error(__datadir+"のフォルダにアクセスしようとしましたが､存在しませんでした",__logger)
+    if not os.path.isdir(vars.DATADIR):#フォルダの存在確認
+        raise util.create_error(vars.DATADIR+"のフォルダにアクセスしようとしましたが､存在しませんでした",__logger)
     
 
     global __filepath
     if bunkatsu is None:
-        __filepath=__datadir+"\\"+ _filename+".txt"
+        __filepath=vars.DATADIR+"\\"+ _filename+".txt"
     else:
-        nowdatadir=__datadir+"\\"+ _filename
+        nowdatadir=vars.DATADIR+"\\"+ _filename
         os.mkdir(nowdatadir)
         __filepath=nowdatadir+"\\"+ _filename+".txt"
         
@@ -462,14 +461,14 @@ def __do_repeat(start,update,end,on_command,bunkatsu):#実際に測定を繰り�
 
 
 def _copy_prefilename():#前回のファイル名をコピー
-    path=__tempdir+"\\prefilename"
+    path=vars.TEMPDIR+"\\prefilename"
     if os.path.isfile(path):
         with open(path,mode="r",encoding=util.get_encode_type(path)) as f:
             prefilename=f.read()
             pyperclip.copy(prefilename)
 
 def _set_filename(filename):#ファイル名をtemodirに保存
-    path=__tempdir+"\\prefilename"
+    path=vars.TEMPDIR+"\\prefilename"
     with open(path,mode="w",encoding="utf-8") as f:
         f.write(filename)
 
