@@ -6,16 +6,18 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 from chardet.universaldetector import UniversalDetector
+import variables as vars
 
-with open("./log_config.json", "r") as f:
-    conf = json.load(f)
+def setlog():
+    with open(f"{vars.SHARED_SCRIPTSDIR}/log_config.json", "r") as f:
+        conf = json.load(f)
 
-    # 月ごとに新しいファイルにログを書き出す
-    now = datetime.now()
-    filename = Path.home() / "GPyM" / "log" / f"{now.year}-{now.month}.log"
-    conf["handlers"]["fileHandler"]["filename"] = str(filename)
+        # 月ごとに新しいファイルにログを書き出す
+        now = datetime.now()
+        filename =  f"log/{now.year}-{now.month}.log"
+        conf["handlers"]["fileHandler"]["filename"] = str(filename)
 
-    config.dictConfig(conf)
+        config.dictConfig(conf)
 
 
 # テキストファイルの文字コードを判別する. ほぼコピペ
