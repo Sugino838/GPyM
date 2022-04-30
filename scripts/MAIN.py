@@ -10,19 +10,10 @@ from importlib.util import spec_from_loader, module_from_spec
 from importlib.machinery import SourceFileLoader 
 import ctypes
 from utilityModule import GPyMException,printlog,inputlog
-
-#簡易編集モードをOFFにするためのおまじない
-kernel32 = ctypes.windll.kernel32
-mode=0xFDB7 #簡易編集モードとENABLE_WINDOW_INPUT と ENABLE_VIRTUAL_TERMINAL_INPUT をOFFに
-kernel32.SetConsoleMode(kernel32.GetStdHandle(-10), mode)
+import variables as vars
 
 
-TEMPDIR=None#TEMPフォルダーのパス
-SHERED_SETTINGS_DIR=None #共有設定フォルダのパス
 logger=util.mklogger(__name__)
-
-
-
 
 
 def main():
@@ -44,11 +35,30 @@ def main():
     """
     #sys.path.append(os.path.dirname(sys.executable))
 
-    path_deffilepath=TEMPDIR+"\\deffilepath"#前回の定義ファルのパスが保存されているファイル
+    
+    path_deffile=get_deffile()#定義ファイル取得
+    printlog("define file : "+os.path.basename(path_deffile))
+
+    datadir,macrodir_default,tempdir =read_deffile(path_deffile)#定義ファイル読み取り
+
+    macropath,macroname,macrodir=get_macropath(macrodir_default)
+
+    macro,data_label=get_macro(macropath)
+
+
+    mm._set_variables(datadir=datadir,tempdir=tempdir,file_label=data_label,shared_settings_dir=vars.SHERED_SETTINGSDIR)
+
+    os.chdir(macrodir)#カレントディレクトリを測定マクロ側に変更
+
+    mm._measure_start(start=macro.start,update=macro.update,end=macro.end,on_command=macro.on_command,bunkatsu=macro.bunkatsu)#測定開始
+    
+
+def get_deffile():
+    path_deffilepath=vars.SHARED_TEMPDIR+"\\deffilepath"#前回の定義ファルのパスが保存されているファイル
     if not os.path.isfile(path_deffilepath):#deffilepathがなければ作る
         with open(path_deffilepath,mode="w",encoding="utf-8") as f:
             pass
-    
+
     with open(path_deffilepath,mode="r",encoding="utf-8") as f:#前回の定義ファイルのフォルダを開いて定義ファイル選択画面へ
         predefpath=f.read()
         predefdir=None
@@ -56,15 +66,91 @@ def main():
         if os.path.isfile(predefpath):
             predefdir,predeffilename=os.path.split(predefpath)
         print("定義ファイル選択...")
-        defpath,datadir,default_macrodir,tempdir=inp.read_defdir(dirpath=predefdir,filename=predeffilename)#前回の定義ファイルのパスがあったところからファイル選択ダイアログを開く
 
-    with open(path_deffilepath,mode="w",encoding="utf-8") as f:#今回の定義ファイルのパスを保存
-        f.write(defpath)
-    
-    
+
+        tk = Tk()
+        typ = [('定義ファイル', '*.def')]
+        defpath=tkfd.askopenfilename(filetypes = typ,title="定義ファイルを選んでください",initialdir=predefdir,initialfile=predeffilename) #ファイルダイアログでファイルを取得
+        tk.destroy() #これとtk=Tk()がないと謎のウィンドウが残って邪魔になる
+
+    if os.path.isfile(defpath):
+        with open(path_deffilepath,mode="w",encoding="utf-8") as f:#今回の定義ファイルのパスを保存
+            f.write(defpath)
+
+    return defpath
+
+
+def read_deffile(path_deffile):#定義ファイルを読み込んで各フォルダのパスを取得
+    datadir=None
+    macrodir=None
+    tempdir=None
+
+    with open(path_deffile, "r", encoding=util.get_encode_type(path_deffile)) as f: #ファイルの読み込み
+        #ファイルの中身を1行ずつ見ていく
+        while True:
+            line=f.readline() #ファイルから1行取得
+            if line:
+                line = "".join(line.split()) #スペース･改行文字の削除
+                line=line.rstrip("\\") #パスの最後尾に"\"があれば削除
+                if "DATADIR=" in line:
+                    datadir=line[8:] #"DATADIR="の後ろの文字列を取得
+                if "TMPDIR=" in line:
+                    tempdir=line[7:]
+                if "MACRODIR=" in line:
+                    macrodir=line[9:]
+                    
+            else:#最後の行までいったらbreak
+                break
+
         
         
-    path_premacroname=TEMPDIR+"\\premacroname"
+        if datadir==None:
+            #最後まで見てDATADIRが無ければエラー表示
+            input("ERROR : 定義ファイルにDATADIRの定義がありません")
+            sys.exit()
+        else:
+
+            if ":" not in datadir:#相対パスなら定義ファイルからの絶対パスに変換
+                datadir=os.path.dirname(path_deffile)+"/"+datadir
+
+            if not os.path.isdir(datadir):#データフォルダが存在しなければエラー
+                input("定義ファイルERROR : "+datadir+"は定義ファイルに設定されていますが存在しません")
+                sys.exit()
+
+
+        if tempdir==None:
+            #最後まで見てTEMPDIRが無ければエラー表示
+            input("ERROR : 定義ファイルにTMPDIRの定義がありません")
+            sys.exit()
+        else:
+
+            if ":" not in tempdir:#相対パスなら定義ファイルからの絶対パスに変換
+                tempdir=os.path.dirname(path_deffile)+"/"+tempdir
+
+            if not os.path.isdir(tempdir):#TEMPフォルダが存在しなければエラー
+                input("定義ファイルERROR : "+tempdir+"は定義ファイルに設定されていますが存在しません")
+                sys.exit()
+
+
+        if macrodir==None:
+            print("warning:you can set MACRODIR in your define file")
+        else:
+            if ":" not in macrodir:#相対パスなら定義ファイルからの絶対パスに変換
+                macrodir=os.path.dirname(path_deffile)+"/"+macrodir
+
+            if not os.path.isdir(macrodir):#マクロフォルダが存在しなければ警告
+                print("定義ファイルWARING : "+macrodir+"は定義ファイルに設定されていますが存在しません")
+                macrodir=None
+
+        vars.DATADIR=datadir
+        vars.TEMPDIR=tempdir
+        vars.MACRODIR=macrodir
+
+        return datadir,macrodir,tempdir #MACRODIRは定義されてなくても通す
+
+
+def get_macropath(path_macrodir):
+    path_premacroname=vars.SHARED_TEMPDIR+"\\premacroname"#前回のマクロ名が保存されたファイルのパス
     if not os.path.isfile(path_premacroname):
         with open(path_premacroname,mode="w",encoding="utf-8") as f:
             pass
@@ -76,7 +162,7 @@ def main():
     tk = Tk()
     print("マクロ選択...")
     typ = [('pythonファイル','*.py *.gpym')] #gpymは勝手に作った拡張子
-    macropath=tkfd.askopenfilename(filetypes = typ,title="マクロを選択してください",initialdir=default_macrodir,initialfile=premacroname) #マクロ選択
+    macropath=tkfd.askopenfilename(filetypes = typ,title="マクロを選択してください",initialdir=path_macrodir,initialfile=premacroname) #マクロ選択
     tk.destroy() #これとtk=Tk()がないと謎のウィンドウが残って邪魔になる
 
 
@@ -88,7 +174,11 @@ def main():
 
     printlog("macro : "+macroname)
     macroname=os.path.splitext(macroname)[0]#ファイル名から拡張子をとる
+    return macropath,macroname,macrodir
 
+def get_macro(macropath):#パスから各種関数を読み込み
+
+    macroname=os.path.splitext(os.path.split(macropath)[1])[0]
     #importlibを使って動的にpythonファイルを読み込む
     spec = spec_from_loader(macroname, SourceFileLoader(macroname,macropath))
     target = module_from_spec(spec)
@@ -152,15 +242,7 @@ def main():
         input("エラーのため終了します...")
         sys.exit()
 
-
-    mm._set_variables(datadir=datadir,tempdir=tempdir,file_label=data_label,shared_settings_dir=SHERED_SETTINGS_DIR)
-
-    os.chdir(macrodir)#カレントディレクトリを測定マクロ側に変更
-
-    mm._measure_start(start=target.start,update=target.update,end=target.end,on_command=target.on_command,bunkatsu=target.bunkatsu)#測定開始
-    
-
-
+    return target,data_label
 
 def bunkatsu_only():
 
@@ -203,27 +285,42 @@ def bunkatsu_only():
     tk.destroy() #これとtk=Tk()がないと謎のウィンドウが残って邪魔になる
 
     
-    mm._set_variables(datadir=None,tempdir=None,file_label=None,shared_settings_dir=SHERED_SETTINGS_DIR)
+    mm._set_variables(datadir=None,tempdir=None,file_label=None,shared_settings_dir=vars.SHERED_SETTINGSDIR)
     target.bunkatsu(filePath)
     input()
     
 
 
+def setting():#変数のセット
+    filedir=os.getcwd()
+    vars.GPYM_HOMEDIR=filedir
+    if not os.path.isdir("temp"):#TEMPDIRが無ければつくる
+        os.mkdir("temp")
+    vars.SHARED_TEMPDIR=filedir+"\\temp"
+
+    if not os.path.isdir("shered_settings"):#SHERED_SETTINGSが無ければつくる
+        os.mkdir("shered_settings")
+    vars.SHERED_SETTINGSDIR=filedir+"\\shered_settings"
+
+
+    if not os.path.isdir("log"):
+        os.mkdir("log")
+    vars.SHARED_LOGDIR=filedir+"\\log"
+
+    vars.SHARED_SCRIPTSDIR=filedir+"\\scripts"
+
+    util.set_LOG(vars.SHARED_TEMPDIR+"\\LOG.txt")#ログをセット
+    util.setlog()#こっちに移行したい
+
+    #簡易編集モードをOFFにするためのおまじない
+    kernel32 = ctypes.windll.kernel32
+    mode=0xFDB7 #簡易編集モードとENABLE_WINDOW_INPUT と ENABLE_VIRTUAL_TERMINAL_INPUT をOFFに
+    kernel32.SetConsoleMode(kernel32.GetStdHandle(-10), mode)
 
 
 if __name__=="__main__":
 
-    filedir=os.getcwd()
-    if not os.path.isdir("TEMP"):#TEMPDIRが無ければつくる
-        os.mkdir("TEMP")
-    TEMPDIR=filedir+"\\TEMP"
-
-    if not os.path.isdir("SHERED_SETTINGS"):#SHERED_SETTINGSが無ければつくる
-        os.mkdir("SHERED_SETTINGS")
-    SHERED_SETTINGS_DIR=filedir+"\\SHERED_SETTINGS"
-
-    util.set_LOG(TEMPDIR+"\\LOG.txt")#ログをセット
-    
+    setting()
 
     args = sys.argv
     if len(args)==1:
@@ -241,7 +338,7 @@ if __name__=="__main__":
             raise Exception()
 
     except Exception as e:
-        util.output_ErrorLog(TEMPDIR+"\\ERRORLOG.txt",e)
+        util.output_ErrorLog(vars.SHARED_TEMPDIR+"\\ERRORLOG.txt",e)
         import traceback
 
         if type(e) is not GPyMException:#自分で設定したエラー以外はコンソールウィンドウにエラーログを表示

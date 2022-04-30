@@ -89,7 +89,8 @@ def _measure_start(start,update,end,on_command,bunkatsu):
         if __isfinish.value==1:
             break
         if __command is None:
-            update()
+            flag=update()
+            if flag==False:__isfinish.value=1
         else:
             on_command(__command) #コマンドが入っていればコマンドを呼ぶ
             __command=None
