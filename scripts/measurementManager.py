@@ -20,6 +20,8 @@ from utilityModule import GPyMException
 from utilityModule import printlog,inputlog
 import variables as vars
 from typing import Any, Union
+import calibration as calib
+
 
 """
 基本的にアンダーバー(_)が先頭についている関数､変数は外部からアクセスすることを想定していません. どうしてもという場合にだけアクセスしてください
@@ -52,9 +54,6 @@ def _measure_start(macro):
     global _file_manager
     _file_manager=FileManager()
 
-    global _data_label 
-    _data_label= macro._data_label
-
     global _state
     _state=State.READY
 
@@ -80,7 +79,9 @@ def _measure_start(macro):
     while msvcrt.kbhit():#既に入っている入力は消す
         msvcrt.getwch()
 
-    command_receiver=CommandReceiver(macro.on_command)
+    command_receiver=CommandReceiver()
+    if macro.on_command is not None:
+        command_receiver.initialize()
 
     printlog("measuring start...")
     _state=State.UPDATE
@@ -192,28 +193,13 @@ class FileManager():
 
         self.file = open(self.path, 'x',encoding="utf-8") #ファイル作成
 
-        file_label=self._user_label+_data_label+"\n"
+        file_label=self._user_label+data_label+"\n"
         self.file.write(file_label) #測定データのラベル書き込み
 
         self.file.flush() #書き込みを反映させる
 
     def save(self,data:Union[str,tuple]):
-        """
-        引数のデータをファイルに書き込む. 
-        この関数が呼ばれるごとに書き込みの反映( __savefile.flush)をおこなっているので途中で測定が落ちてもそれまでのデータは残るようになっている.
 
-        stringの引数にも対応しているので､測定のデータは測定マクロ側でstringで保持しておいて最後にまとめて書き込むことも可能.
-
-        Parameter
-        __________________________
-
-        data : tuple or string
-            書き込むデータ
-
-        """
-
-        if _state!=State.UPDATE and _state!=State.END:
-            __logger.warning(sys._getframe().f_code.co_name+"はupdateもしくはend関数内で用いてください")
         if type(data) is not str and not isinstance(data, tuple):
             raise util.create_error(sys._getframe().f_code.co_name+": dataはタプル型､もしくはstring型でなければなりません",__logger)
 
@@ -231,9 +217,6 @@ class FileManager():
         self.file.flush()#反映. 
 
     def set_label(self,label:str)->None:
-        global _state
-        if _state!=State.START:
-            __logger.warning(sys._getframe().f_code.co_name+"はstart関数内で用いてください")
         if not label[-1]=="\n":#末尾に改行コードがついていなければくっつける
             label+="\n"
         self._user_label=self._user_label+label
@@ -246,11 +229,11 @@ class CommandReceiver():#コマンドの入力を受け取るクラス
     __command:Optional[str]=None
     __isfinish:bool=False
 
-    def __init__(self,command_func) -> None:
-        if command_func is not None:
-            cmthr=threading.Thread(target=self.__command_receive_thread)
-            cmthr.setDaemon(True)
-            cmthr.start()
+            
+    def initialize(self):
+        cmthr=threading.Thread(target=self.__command_receive_thread)
+        cmthr.setDaemon(True)
+        cmthr.start()
 
     def __command_receive_thread(self) -> None:#終了コマンドの入力待ち, これは別スレッドで動かす
         while True:
@@ -271,84 +254,30 @@ class CommandReceiver():#コマンドの入力を受け取るクラス
         self.__isfinish=True
 
 
-def set_calibration(filepath_calb=None):#プラチナ温度計の抵抗値を温度に変換するためのファイルを読み込み
+def set_calibration(filepath_calib=None):
     """
-    キャリブレーションファイルの2列目をx,1列目をyとして線形補間関数を作る.
-    基本的に引数は使わない.
-    引数が無いときはSHARED_SETTINGSフォルダーにある標準のキャリブレーションファイルを用いる. 
-
-    Parameter
-    __________________________
-
-    filepath_calb : string
-        キャリブレーションファイルのパス. 基本的にはこの引数はわたさない
-
+    この関数は非推奨です。calibration.pyを作ったのでそちらをから呼んでください
+    プラチナ温度計の抵抗値を温度に変換するためのファイルを読み込み
     """
-
-    if filepath_calb is not None:
-        if not os.path.isfile(filepath_calb):
-            raise util.create_error("キャリブレーションファイル"+filepath_calb+"が存在しません. "+os.getcwd()+"で'"+filepath_calb+"'にアクセスしようとしましたが存在しませんでした.",__logger)
+    global calibration
+    calibration=calib.TMRCalibration()
+    if filepath_calib==None:
+        calibration.set_shared_calib_file()
     else:
-        path=vars.SHERED_SETTINGSDIR+"/calibration_file"
-        if not os.path.isdir(path):
-            raise util.create_error(__share_list+" にcalibration_fileフォルダーが存在しません. \n"+__share_list+" にcalibration_fileフォルダーを新規作成した後でフォルダー内にキャリブレーションファイルを置きもう一度実行してください. ",__logger)
-        import glob
-        files = glob.glob(path+"/*")
-
-        
-        if len(files)==0:
-            raise util.create_error(path+"内には1つのキャリブレーションファイルを置く必要があります",__logger)
-        if len(files)>=2:
-            raise util.create_error(path+"内に2つ以上のファイルを置いてはいけません",__logger)
-        filepath_calb=files[0]
-
-    
-    global __interpolate_func
-    with open(filepath_calb,'r',encoding=util.get_encode_type(filepath_calb)) as file:
-
-        x=[]
-        y=[]
-
-        while True:
-            line=file.readline() #1行ずつ読み取り
-            line = line.strip() #前後空白削除
-            line = line.replace('\n','') #末尾の\nの削除
-
-            if line == "": #空なら終了
-                break
-
-            try:
-                array_string = line.split(",") #","で分割して配列にする
-                array_float=[float(s) for s in array_string] #文字列からfloatに変換
-                
-                x.append(array_float[1])#抵抗値の情報
-                y.append(array_float[0])#対応する温度の情報
-            except Exception:
-                pass
-
-    calibfilename=os.path.split(filepath_calb)[1]
-    printlog("calibration : "+filepath_calb)
-    global __interpolate_func
-    __interpolate_func = interpolate.interp1d(x,y,fill_value='extrapolate') # 線形補間関数定義
-
-    return calibfilename
+        calibration.set_own_calib_file(filepath_calib)
 
 def calibration(x):
     """
+    この関数は非推奨です。calibration.pyを作ったのでそちらをから呼んでください
     プラチナ温度計の抵抗値xに対応する温度yを線形補間で返す
     """
-    try:
-        y=__interpolate_func(x)
-    except ValueError as e:
-        raise util.create_error("入力されたデータ "+str(x)+" がキャリブレーションファイルのデータ範囲外になっている可能性があります",__logger,e)
-    except NameError as e:
-        raise util.create_error("キャリブレーションファイルが読み込まれていない可能性があります",__logger,e)
-    except Exception as e:
-        raise util.create_error("予期せぬエラーが発生しました",__logger,e)
-    return y
+    global calibration
+    return calibration.calibration(x)
 
 
 def set_label(label):
+    if _state!=State.START:
+            __logger.warning(sys._getframe().f_code.co_name+"はstart関数内で用いてください")
     global _file_manager
     _file_manager.set_label(label=label)
 
@@ -426,6 +355,21 @@ def set_plot_info(line=False,xlog=False,ylog=False,renew_interval=1,legend=False
 
 
 def save_data(data):#データ保存
+    """
+        引数のデータをファイルに書き込む. 
+        この関数が呼ばれるごとに書き込みの反映( __savefile.flush)をおこなっているので途中で測定が落ちてもそれまでのデータは残るようになっている.
+
+        stringの引数にも対応しているので､測定のデータは測定マクロ側でstringで保持しておいて最後にまとめて書き込むことも可能.
+
+        Parameter
+        __________________________
+
+        data : tuple or string
+            書き込むデータ
+
+        """
+    if _state!=State.UPDATE and _state!=State.END:
+        __logger.warning(sys._getframe().f_code.co_name+"はupdateもしくはend関数内で用いてください")
     global _file_manager
     _file_manager.save(data)
     
