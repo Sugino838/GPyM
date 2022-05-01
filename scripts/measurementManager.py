@@ -21,7 +21,7 @@ from utilityModule import printlog,inputlog
 import variables as vars
 from typing import Any, Union
 import calibration as calib
-
+import IOModule as io
 
 """
 基本的にアンダーバー(_)が先頭についている関数､変数は外部からアクセスすることを想定していません. どうしてもという場合にだけアクセスしてください
@@ -44,14 +44,17 @@ __logger=util.mklogger(__name__)
 
 __nograph=False
 
+is_finish=False
+
 def _measure_start(macro):
     """
     測定のメインとなる関数. 測定マクロに書かれた各関数はMAIN.pyによってここに渡されて
     ここでそれぞれの関数を適切なタイミングで呼んでいる
 
     """
-    global _file_manager
-    _file_manager=FileManager()
+    global _file_manager,_plot_agency
+    _file_manager=io.FileManager()
+    _plot_agency=io.PlotAgency()
 
     global _state
     _state=State.READY
@@ -72,30 +75,32 @@ def _measure_start(macro):
     _file_manager.create_file(filename=filename,data_label=macro._data_label,is_bunkatsu=(macro.bunkatsu is not None))#ファイル作成
 
     if not __nograph:
-        _run_window()#グラフウィンドウの立ち上げ
+        _plot_agency.run_plot_window()#グラフウィンドウの立ち上げ
 
     
     while msvcrt.kbhit():#既に入っている入力は消す
         msvcrt.getwch()
 
-    command_receiver=CommandReceiver()
+    command_receiver=io.CommandReceiver()
     if macro.on_command is not None:
         command_receiver.initialize()
 
     printlog("measuring start...")
     _state=State.UPDATE
+    global is_finish
     while True:#測定終了までupdateを回す
-        if __isfinish.value==1:
+        if is_finish:
             break
         command=command_receiver.get_command()
         if command is None:
             flag=macro.update()
             if flag==False:
-                __isfinish.value=1
+                is_finish=True
         else:
             macro.on_command(command) #コマンドが入っていればコマンドを呼ぶ
 
     command_receiver.close()
+    _plot_agency.stop_renew_plot_window()
 
     printlog("measurement has finished...")
 
@@ -120,7 +125,8 @@ def _measure_start(macro):
 
 
 def finish():
-    __isfinish.value=1
+    global is_finish
+    is_finish=True
     
 
 def _end():
@@ -134,7 +140,11 @@ def _end():
         windowclose=True
     def wait_closewindow():#グラフウィンドウからの終了
         nonlocal endflag
-        __window_process.join()#_window_processの終了待ち
+        while True:
+            #print(_plot_agency.is_plot_window_alive())
+            if not _plot_agency.is_plot_window_alive():
+                break
+            time.sleep(0.2)
         endflag=True
     endflag=False
     windowclose=False
@@ -155,99 +165,11 @@ def _end():
     while True:
         if endflag:
             if not windowclose: 
-                __window_process.terminate()
+                _plot_agency.close()
             break
         time.sleep(0.05)
 
-class FileManager(): #ファイルの管理
 
-    filepath:str
-    filename:str
-    file=None
-    _user_label=""
-
-    def create_file(self,filename:str,data_label:str,is_bunkatsu:bool)->None:
-        self.name=filename
-        """
-        フォルダが無ければエラーを出し､あれば新規でファイルを作り､__savefileに代入
-        """
-
-        if not os.path.isdir(vars.DATADIR):#フォルダの存在確認
-            raise util.create_error(vars.DATADIR+"のフォルダにアクセスしようとしましたが､存在しませんでした",__logger)
-        
-
-        if is_bunkatsu :
-            self.path=vars.DATADIR+"\\"+ filename+".txt"
-        else:
-            nowdatadir=vars.DATADIR+"\\"+ filename
-            os.mkdir(nowdatadir)
-            self.path=nowdatadir+"\\"+ filename+".txt"
-        
-
-    
-        
-
-        self.file = open(self.path, 'x',encoding="utf-8") #ファイル作成
-
-        file_label=self._user_label+data_label+"\n"
-        self.file.write(file_label) #測定データのラベル書き込み
-
-        self.file.flush() #書き込みを反映させる
-
-    def save(self,data:Union[str,tuple]):
-
-        if type(data) is not str and not isinstance(data, tuple):
-            raise util.create_error(sys._getframe().f_code.co_name+": dataはタプル型､もしくはstring型でなければなりません",__logger)
-
-        if type(data) is str:#文字列を入力したときにも一応対応
-            self.file.write(data)#書き込み
-        else:
-            text=""
-            for i in range(len(data)):#タプルの全要素をstringにして並べる
-                if i == 0:
-                    text+=str(data[0])
-                else:
-                    text+=","+str(data[i])
-            text+="\n"#末尾に改行記号
-            self.file.write(text)#書き込み
-        self.file.flush()#反映. 
-
-    def set_label(self,label:str)->None:
-        if not label[-1]=="\n":#末尾に改行コードがついていなければくっつける
-            label+="\n"
-        self._user_label=self._user_label+label
-
-    def close(self):
-        self.file.close()
-
-class CommandReceiver():#コマンドの入力を受け取るクラス
-
-    __command:Optional[str]=None
-    __isfinish:bool=False
-
-            
-    def initialize(self):
-        cmthr=threading.Thread(target=self.__command_receive_thread)
-        cmthr.setDaemon(True)
-        cmthr.start()
-
-    def __command_receive_thread(self) -> None:#終了コマンドの入力待ち, これは別スレッドで動かす
-        while True:
-            if msvcrt.kbhit() and not self.__isfinish: #入力が入って初めてinputが動くように(inputが動くとその間ループを抜けられないので)
-                self.__command=inputlog()
-                while self.__command is not None:
-                    time.sleep(0.1)
-            elif self.__isfinish:
-                break
-            time.sleep(0.1)
-        
-    def get_command(self) -> str: #受け取ったコマンドを返す。なければNoneを返す
-        send=self.__command
-        self.__command=None
-        return send
-    
-    def close(self):
-        self.__isfinish=True
 
 
 def set_calibration(filepath_calib=None):
@@ -280,28 +202,6 @@ def set_label(label):
 
 
 
-
-
-def _run_window():#グラフと終了コマンド待ち処理を走らせる
-    """
-    GPyMではマルチプロセスを用いて測定プロセスとは別のプロセスでグラフの描画を行う.
-
-    Pythonのマルチプロセスでは必要な値はプロセスの作成時に渡しておかなくてはならないので､(例外あり)
-    ここではマルチプロセスの起動と必要な引数の受け渡しを行う.
-    """
-    manager = Manager() 
-    global __share_list,__isfinish,__lock_process
-    __share_list=manager.list()#プロセス間で共有できるリスト
-    __isfinish=Value("i",0)#測定の終了を判断するためのint
-    __lock_process=Lock()#2つのプロセスで同時に同じデータを触らないようにする排他制御のキー
-    #グラフ表示は別プロセスで実行する
-    global __window_process
-    __window_process=Process(target=windowModule.exec,args=(__share_list,__isfinish,__lock_process,__plot_info))
-    __window_process.daemon=True#プロセスのデーモン化
-    __window_process.start()#マルチプロセス実行
-
-
-
 def set_plot_info(line=False,xlog=False,ylog=False,renew_interval=1,legend=False,flowwidth=0):#プロット情報の入力
     """
     グラフ描画プロセスに渡す値はここで設定する.
@@ -329,24 +229,7 @@ def set_plot_info(line=False,xlog=False,ylog=False,renew_interval=1,legend=False
 
     if _state!=State.READY and _state!=State.START:
         __logger.warning(sys._getframe().f_code.co_name+"はstart関数内で用いてください")
-    if type(line) is not bool:
-        raise util.create_error(sys._getframe().f_code.co_name+": lineの値はTrueかFalseです",__logger)
-    if type(xlog) is not bool or type(ylog) is not bool:
-        raise util.create_error(sys._getframe().f_code.co_name+": xlog,ylogの値はTrueかFalseです",__logger)
-    if type(legend) is not bool :
-        raise util.create_error(sys._getframe().f_code.co_name+": legendの値はTrueかFalseです",__logger)
-    if type(flowwidth) is not float and type(flowwidth) is not int:
-        raise util.create_error(sys._getframe().f_code.co_name+": flowwidthの型はintかfloatです",__logger)
-    if flowwidth<0:
-        raise util.create_error(sys._getframe().f_code.co_name+": flowwidthの値は0以上にする必要があります",__logger)
-    if type(renew_interval) is not float and type(renew_interval) is not int:
-        raise util.create_error(sys._getframe().f_code.co_name+": renew_intervalの型はintかfloatです",__logger)
-    if renew_interval<0:
-        raise util.create_error(sys._getframe().f_code.co_name+": renew_intervalの型は0以上にする必要があります",__logger)
-
-    global __plot_info
-    __plot_info={"line":line,"xlog":xlog,"ylog":ylog,"renew_interval":renew_interval,"legend":legend,"flowwidth":flowwidth}
-
+    _plot_agency.set_plot_info(line=line,xlog=xlog,ylog=ylog,renew_interval=renew_interval,legend=legend,flowwidth=flowwidth)
 
 
 
@@ -396,10 +279,7 @@ def plot(x,y,label="default"):
 
     if _state!=State.UPDATE:
         __logger.warning(sys._getframe().f_code.co_name+"はstartもしくはupdate関数内で用いてください")
-    data=(x,y,label)
-    __lock_process.acquire() #   ロックをかけて別プロセスからアクセスできないようにする
-    __share_list.append(data)# プロセス間で共有するリストにデータを追加
-    __lock_process.release()#ロック解除
+    _plot_agency.plot(x,y,label)
 
 
 
@@ -423,26 +303,7 @@ def _input_filename():#ファイル名入力
     _set_filename(filename_withoutdate)
     return filename
 
-
-
-def graph_window_off():
-    global __nograph
-    __nograph=True
-
-    manager = Manager()
-    global __share_list,__isfinish,__lock_process
-    __share_list=manager.list()
-    __isfinish=Value("i",0)
-    __lock_process=Lock()
-
-    class damy_window_proess():
-        def join(self):
-            pass
-        def terminate(self):
-            pass
-        def start(self):
-            pass
-
-    global __window_process
-    __window_process=damy_window_proess()
-
+def no_plot():
+    if _state!=State.START:
+        __logger.warning(sys._getframe().f_code.co_name+"はstart関数内で用いてください")
+    _plot_agency.not_run_plot_window()

@@ -21,8 +21,6 @@ def exec(share_list,isfinish,lock,plot_info):#別プロセスで最初に実行�
 
     PlotWindow(share_list,isfinish,lock,**plot_info).run()#インスタンス作成, 実行
 
-  
-
 
 class PlotWindow():
     """
@@ -88,12 +86,8 @@ class PlotWindow():
                 break
             time.sleep(interval)
 
-        while True:#終了してもグラフを表示したままにする
-            try:
-                self._figure.canvas.flush_events()
-            except Exception:#｢ここでエラーが出る⇒グラフウィンドウを消した｣と想定してエラーはもみ消しループを抜ける
-                break
-            time.sleep(0.05)#グラフ操作のFPSを20くらいにする
+        plt.show(block=True)
+        
    
 
 
@@ -112,7 +106,8 @@ class PlotWindow():
         self.lock.release()#ロック解除
 
 
-        relim=False#for文が1回も回らないことがあるのでここで宣言しておく
+        xrelim=False#for文が1回も回らないことがあるのでここで宣言しておく
+        yrelim=False
 
         for i in  range(len(temp)) :#tempの中身をプロット
             x,y,label=temp[i]
@@ -123,7 +118,7 @@ class PlotWindow():
                 color=colormap[(self._count_label)%len(colormap)]
                 self._count_label+=1
                 ln,=self._ax.plot(xarray,yaaray,marker='.',color=color,label=label,linestyle=self.linestyle) #プロット
-                lineobj=LineObj(ln,xarray,yaaray)#辞書に追加
+                lineobj=self.LineObj(ln,xarray,yaaray)#辞書に追加
                 self.linedict[label]=lineobj
 
                 if self.legend:
@@ -150,31 +145,33 @@ class PlotWindow():
                 self.max_x=x
             elif self.max_x<x:
                 self.max_x=x
-                relim=True
+                xrelim=True
 
             if self.max_y is None:
                 self.max_y=y
             elif self.max_y<y:
                 self.max_y=y
-                relim=True    
+                yrelim=True    
             
             if self.min_x is None:
                 self.min_x=x
             elif self.min_x>x:
                 self.min_x=x
-                relim=True
+                xrelim=True
 
             if self.min_y is None:
                 self.min_y=y
             elif self.min_y>y:
                 self.min_y=y
-                relim=True
+                yrelim=True
         
-        if relim:
+        
+
+        if xrelim or yrelim:
             if self.flowwidth<=0:
                 #範囲の更新
-                self._ax.set_xlim(self.min_x,self.max_x)
-                self._ax.set_ylim(self.min_y,self.max_y)
+                if xrelim: self._ax.set_xlim(self.min_x,self.max_x)
+                if yrelim: self._ax.set_ylim(self.min_y,self.max_y)
             else:
                 #横幅が決まっているときはそれに先頭に合わせて範囲を変更
                 xmin=self.max_x-self.flowwidth
@@ -198,9 +195,11 @@ class PlotWindow():
    
         self._figure.canvas.flush_events() #グラフを再描画するおまじない
 
-class LineObj():
+    class LineObj():
 
-    def __init__(self,ln,xarray,yaaray):
-        self.ln=ln
-        self.xarray=xarray
-        self.yaaray=yaaray
+        def __init__(self,ln,xarray,yaaray):
+            self.ln=ln
+            self.xarray=xarray
+            self.yaaray=yaaray
+
+
