@@ -1,3 +1,4 @@
+from ctypes import Union
 import sys
 import os
 import threading
@@ -18,6 +19,7 @@ import pyperclip
 from utilityModule import GPyMException
 from utilityModule import printlog,inputlog
 import variables as vars
+from typing import Any, Union
 
 """
 基本的にアンダーバー(_)が先頭についている関数､変数は外部からアクセスすることを想定していません. どうしてもという場合にだけアクセスしてください
@@ -47,25 +49,29 @@ def _measure_start(macro):
     ここでそれぞれの関数を適切なタイミングで呼んでいる
 
     """
+    global _file_manager
+    _file_manager=FileManager()
+
     global _data_label 
     _data_label= macro._data_label
 
-    global __state
-    __state=State.READY
+    global _state
+    _state=State.READY
 
     while msvcrt.kbhit():#既に入っている入力は消す
         msvcrt.getwch()
     
-    global _filename
-    _filename = _input_filename()
+    
+    filename = _input_filename()
+    
     
     set_plot_info()#start内で呼ばれなかったときのためにここで一回呼んでおく
 
     if macro.start is not None:
-        __state=State.START
+        _state=State.START
         macro.start()
 
-    _set_file(macro.bunkatsu)#ファイル作成
+    _file_manager.create_file(filename=filename,data_label=macro._data_label,is_bunkatsu=(macro.bunkatsu is not None))#ファイル作成
 
     if not __nograph:
         _run_window()#グラフウィンドウの立ち上げ
@@ -77,7 +83,7 @@ def _measure_start(macro):
     command_receiver=CommandReceiver(macro.on_command)
 
     printlog("measuring start...")
-    __state=State.UPDATE
+    _state=State.UPDATE
     while True:#測定終了までupdateを回す
         if __isfinish.value==1:
             break
@@ -94,15 +100,15 @@ def _measure_start(macro):
     printlog("measurement has finished...")
 
     if macro.end is not None:
-        __state=State.END
+        _state=State.END
         macro.end()
     
-    __savefile.close()
+    _file_manager.close()
     
     if macro.bunkatsu is not None:
-        __state=State.BUNKATSU
-        macro.bunkatsu(__filepath)
-    __state=State.ALLEND
+        _state=State.BUNKATSU
+        macro.bunkatsu(_file_manager.filepath)
+    _state=State.ALLEND
     
 
     if __repeat:
@@ -155,7 +161,86 @@ def _end():
                 __window_process.terminate()
             break
         time.sleep(0.05)
+
+class FileManager():
+
+    filepath:str
+    filename:str
+    file=None
+    _user_label=""
+
+    def create_file(self,filename:str,data_label:str,is_bunkatsu:bool)->None:
+        self.name=filename
+        """
+        フォルダが無ければエラーを出し､あれば新規でファイルを作り､__savefileに代入
+        """
+
+        if not os.path.isdir(vars.DATADIR):#フォルダの存在確認
+            raise util.create_error(vars.DATADIR+"のフォルダにアクセスしようとしましたが､存在しませんでした",__logger)
+        
+
+        if is_bunkatsu :
+            self.path=vars.DATADIR+"\\"+ filename+".txt"
+        else:
+            nowdatadir=vars.DATADIR+"\\"+ filename
+            os.mkdir(nowdatadir)
+            self.path=nowdatadir+"\\"+ filename+".txt"
+        
+
     
+        
+
+        self.file = open(self.path, 'x',encoding="utf-8") #ファイル作成
+
+        file_label=self._user_label+_data_label+"\n"
+        self.file.write(file_label) #測定データのラベル書き込み
+
+        self.file.flush() #書き込みを反映させる
+
+    def save(self,data:Union[str,tuple]):
+        """
+        引数のデータをファイルに書き込む. 
+        この関数が呼ばれるごとに書き込みの反映( __savefile.flush)をおこなっているので途中で測定が落ちてもそれまでのデータは残るようになっている.
+
+        stringの引数にも対応しているので､測定のデータは測定マクロ側でstringで保持しておいて最後にまとめて書き込むことも可能.
+
+        Parameter
+        __________________________
+
+        data : tuple or string
+            書き込むデータ
+
+        """
+
+        if _state!=State.UPDATE and _state!=State.END:
+            __logger.warning(sys._getframe().f_code.co_name+"はupdateもしくはend関数内で用いてください")
+        if type(data) is not str and not isinstance(data, tuple):
+            raise util.create_error(sys._getframe().f_code.co_name+": dataはタプル型､もしくはstring型でなければなりません",__logger)
+
+        if type(data) is str:#文字列を入力したときにも一応対応
+            self.file.write(data)#書き込み
+        else:
+            text=""
+            for i in range(len(data)):#タプルの全要素をstringにして並べる
+                if i == 0:
+                    text+=str(data[0])
+                else:
+                    text+=","+str(data[i])
+            text+="\n"#末尾に改行記号
+            self.file.write(text)#書き込み
+        self.file.flush()#反映. 
+
+    def set_label(self,label:str)->None:
+        global _state
+        if _state!=State.START:
+            __logger.warning(sys._getframe().f_code.co_name+"はstart関数内で用いてください")
+        if not label[-1]=="\n":#末尾に改行コードがついていなければくっつける
+            label+="\n"
+        self._user_label=self._user_label+label
+
+    def close(self):
+        self.file.close()
+
 class CommandReceiver():#コマンドの入力を受け取るクラス
 
     __command:Optional[str]=None
@@ -262,43 +347,11 @@ def calibration(x):
         raise util.create_error("予期せぬエラーが発生しました",__logger,e)
     return y
 
-__user_label=""
+
 def set_label(label):
-    if __state!=State.START:
-        __logger.warning(sys._getframe().f_code.co_name+"はstart関数内で用いてください")
-    global __user_label
-    if not label[-1]=="\n":#末尾に改行コードがついていなければくっつける
-        label+="\n"
-    __user_label=__user_label+label
+    global _file_manager
+    _file_manager.set_label(label=label)
 
-def _set_file(bunkatsu):#ファイルの作成,準備
-
-    """
-    フォルダが無ければエラーを出し､あれば新規でファイルを作り､__savefileに代入
-    """
-
-    if not os.path.isdir(vars.DATADIR):#フォルダの存在確認
-        raise util.create_error(vars.DATADIR+"のフォルダにアクセスしようとしましたが､存在しませんでした",__logger)
-    
-
-    global __filepath
-    if bunkatsu is None:
-        __filepath=vars.DATADIR+"\\"+ _filename+".txt"
-    else:
-        nowdatadir=vars.DATADIR+"\\"+ _filename
-        os.mkdir(nowdatadir)
-        __filepath=nowdatadir+"\\"+ _filename+".txt"
-        
-
-    
-        
-    global __savefile
-    __savefile = open(__filepath, 'x',encoding="utf-8") #ファイル作成
-
-    file_label=__user_label+_data_label+"\n"
-    __savefile.write(file_label) #測定データのラベル書き込み
-
-    __savefile.flush() #書き込みを反映させる
 
 
 
@@ -349,7 +402,7 @@ def set_plot_info(line=False,xlog=False,ylog=False,renew_interval=1,legend=False
 
     """
 
-    if __state!=State.READY and __state!=State.START:
+    if _state!=State.READY and _state!=State.START:
         __logger.warning(sys._getframe().f_code.co_name+"はstart関数内で用いてください")
     if type(line) is not bool:
         raise util.create_error(sys._getframe().f_code.co_name+": lineの値はTrueかFalseです",__logger)
@@ -373,37 +426,8 @@ def set_plot_info(line=False,xlog=False,ylog=False,renew_interval=1,legend=False
 
 
 def save_data(data):#データ保存
-    """
-    引数のデータをファイルに書き込む. 
-    この関数が呼ばれるごとに書き込みの反映( __savefile.flush)をおこなっているので途中で測定が落ちてもそれまでのデータは残るようになっている.
-
-    stringの引数にも対応しているので､測定のデータは測定マクロ側でstringで保持しておいて最後にまとめて書き込むことも可能.
-
-    Parameter
-    __________________________
-
-    data : tuple or string
-        書き込むデータ
-
-    """
-
-    if __state!=State.UPDATE and __state!=State.END:
-        __logger.warning(sys._getframe().f_code.co_name+"はupdateもしくはend関数内で用いてください")
-    if type(data) is not str and not isinstance(data, tuple):
-        raise util.create_error(sys._getframe().f_code.co_name+": dataはタプル型､もしくはstring型でなければなりません",__logger)
-
-    if type(data) is str:#文字列を入力したときにも一応対応
-        __savefile.write(data)#書き込み
-    else:
-        text=""
-        for i in range(len(data)):#タプルの全要素をstringにして並べる
-            if i == 0:
-                text+=str(data[0])
-            else:
-                text+=","+str(data[i])
-        text+="\n"#末尾に改行記号
-        __savefile.write(text)#書き込み
-    __savefile.flush()#反映. 
+    global _file_manager
+    _file_manager.save(data)
     
     
 
@@ -427,7 +451,7 @@ def plot_data(x,y,label="default"):#データをグラフにプロット
 
     """
 
-    if __state!=State.UPDATE:
+    if _state!=State.UPDATE:
         __logger.warning(sys._getframe().f_code.co_name+"はstartもしくはupdate関数内で用いてください")
     data=(x,y,label)
     __lock_process.acquire() #   ロックをかけて別プロセスからアクセスできないようにする
