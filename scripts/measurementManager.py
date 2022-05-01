@@ -42,7 +42,6 @@ class State(Enum):
 
 __logger=util.mklogger(__name__)
 
-__repeat=False
 __nograph=False
 
 def _measure_start(macro):
@@ -112,10 +111,7 @@ def _measure_start(macro):
     _state=State.ALLEND
     
 
-    if __repeat:
-        __do_repeat(macro.start,macro.update,macro.end,macro.on_command,macro.bunkatsu)
-    else:
-        _end()
+    _end()
 
 
 
@@ -163,7 +159,7 @@ def _end():
             break
         time.sleep(0.05)
 
-class FileManager():
+class FileManager(): #ファイルの管理
 
     filepath:str
     filename:str
@@ -377,6 +373,9 @@ def save_data(data):#データ保存
 
 
 def plot_data(x,y,label="default"):#データをグラフにプロット
+    plot(x,y,label)
+    
+def plot(x,y,label="default"):
     """
     データをグラフ描画プロセスに渡す. 
     labelが変わると色が変わる
@@ -402,29 +401,8 @@ def plot_data(x,y,label="default"):#データをグラフにプロット
     __share_list.append(data)# プロセス間で共有するリストにデータを追加
     __lock_process.release()#ロック解除
 
-def repeat_measurement(closewindow=True):#測定の繰り返しを伝える関数
-    """
-    測定を繰り返す場合はそのたびに呼ぶ.
-
-    Parameter
-    __________________________
-
-    closewindow : bool
-        各測定の終了でグラフウィンドウを閉じるかどうか.
-
-    """
-    global __repeat,__closewindow_repeat
-    __repeat=True
-    __closewindow_repeat=closewindow
 
 
-def __do_repeat(start,update,end,on_command,bunkatsu):#実際に測定を繰り返す関数
-    global __repeat
-    if __closewindow_repeat:
-        __window_process.terminate()
-    printlog("next measurement start...")
-    __repeat=False
-    _measure_start(start,update,end,on_command,bunkatsu)
 
 
 def _copy_prefilename():#前回のファイル名をコピー
