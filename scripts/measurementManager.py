@@ -89,6 +89,7 @@ def _measure_start(macro):
         else:
             macro.on_command(command) #コマンドが入っていればコマンドを呼ぶ
 
+    command_receiver.close()
 
     printlog("measurement has finished...")
 
@@ -155,7 +156,7 @@ def _end():
             break
         time.sleep(0.05)
     
-class CommandReceiver():
+class CommandReceiver():#コマンドの入力を受け取るクラス
 
     __command:Optional[str]=None
     __isfinish:bool=False
@@ -176,12 +177,12 @@ class CommandReceiver():
                 break
             time.sleep(0.1)
         
-    def get_command(self) -> str:
+    def get_command(self) -> str: #受け取ったコマンドを返す。なければNoneを返す
         send=self.__command
         self.__command=None
         return send
     
-    def finish(self):
+    def close(self):
         self.__isfinish=True
 
 
