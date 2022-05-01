@@ -12,16 +12,20 @@ def get_instrument(address):
     Parameters
     _________
 
-    address: string
-        機器のGPIBアドレス
+    address: string or int
+        機器のGPIBアドレス stringならGPIB0::9::INSTRの形式
 
     Returns
     _________
 
     inst :型不明
-        機器にアクセスできる変数
+        機器にアクセスできるインスタンス
 
     """
+
+    if type(address) is int:
+        address=f"GPIB0::{address}::INSTR"
+
     rm = pyvisa.ResourceManager()
     try:
         #機器にアクセス. GPIBがつながってないとここでエラーが出る
@@ -51,9 +55,3 @@ def command_check(inst,*commands):
         except Exception as e:
             raise util.create_error("GPIB"+str(inst.primary_address)+"番への'"+command+"'のコマンドでエラーが発生しました",logger,e)
 
-
-def main():
-    get_volt(get_instrument("GPIB0::9::INSTR"))
-
-if __name__ == "__main__":
-    main()
