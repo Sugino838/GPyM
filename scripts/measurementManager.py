@@ -63,16 +63,17 @@ def _measure_start(macro):
         msvcrt.getwch()
     
     
-    filename = _input_filename()
-    
+    filename = _get_filename()
+    _file_manager.create_file(filename=filename,data_label=macro._data_label,is_bunkatsu=(macro.bunkatsu is not None))#ファイル作成
     
     set_plot_info()#start内で呼ばれなかったときのためにここで一回呼んでおく
+
 
     if macro.start is not None:
         _state=State.START
         macro.start()
 
-    _file_manager.create_file(filename=filename,data_label=macro._data_label,is_bunkatsu=(macro.bunkatsu is not None))#ファイル作成
+    
 
     if not __nograph:
         _plot_agency.run_plot_window()#グラフウィンドウの立ち上げ
@@ -252,7 +253,8 @@ def save_data(data):#データ保存
     global _file_manager
     _file_manager.save(data)
     
-    
+def write_file(text):
+    _file_manager.write(text)
 
 
 def plot_data(x,y,label="default"):#データをグラフにプロット
@@ -282,22 +284,19 @@ def plot(x,y,label="default"):
     _plot_agency.plot(x,y,label)
 
 
+def _get_filename():#ファイル名入力
+    def _copy_prefilename():#前回のファイル名をコピー
+        path=vars.TEMPDIR+"\\prefilename"
+        if os.path.isfile(path):
+            with open(path,mode="r",encoding=util.get_encode_type(path)) as f:
+                prefilename=f.read()
+                pyperclip.copy(prefilename)
 
+    def _set_filename(filename):#ファイル名をtemodirに保存
+        path=vars.TEMPDIR+"\\prefilename"
+        with open(path,mode="w",encoding="utf-8") as f:
+            f.write(filename)
 
-
-def _copy_prefilename():#前回のファイル名をコピー
-    path=vars.TEMPDIR+"\\prefilename"
-    if os.path.isfile(path):
-        with open(path,mode="r",encoding=util.get_encode_type(path)) as f:
-            prefilename=f.read()
-            pyperclip.copy(prefilename)
-
-def _set_filename(filename):#ファイル名をtemodirに保存
-    path=vars.TEMPDIR+"\\prefilename"
-    with open(path,mode="w",encoding="utf-8") as f:
-        f.write(filename)
-
-def _input_filename():#ファイル名入力
     _copy_prefilename()
     filename,_datelabel,filename_withoutdate=inp.get_filename()
     _set_filename(filename_withoutdate)

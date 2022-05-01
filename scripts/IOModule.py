@@ -1,3 +1,4 @@
+from mimetypes import init
 import os
 import utilityModule as util
 from typing import Union
@@ -79,6 +80,10 @@ class FileManager(): #ファイルの管理
             self.file.write(text)#書き込み
         self.file.flush()#反映. 
 
+    def write(self,text):
+        self.file.write(text)
+        self.file.flush()
+
     def set_label(self,label:str)->None:
         if not label[-1]=="\n":#末尾に改行コードがついていなければくっつける
             label+="\n"
@@ -133,6 +138,9 @@ from typing import List
 
 class PlotAgency():
 
+
+    def __init__(self) -> None:
+        self.set_plot_info()
 
     share_list:List[tuple]
     is_finish:Value
