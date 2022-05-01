@@ -2,6 +2,7 @@ import sys
 import os
 import threading
 import math
+from typing import Optional
 import matplotlib.pyplot as plt
 import inputModule as inp
 from scipy import interpolate
@@ -33,17 +34,10 @@ class State(Enum):
     BUNKATSU=auto()
     ALLEND=auto()
 
-def _set_variables(datadir,tempdir,file_label,shared_settings_dir):#グローバル変数のセット
-    global __datadir,__tempdir,_data_label,__shared_settings_dir
-    __datadir=datadir
-    __tempdir=tempdir
-    _data_label=file_label
-    __shared_settings_dir=shared_settings_dir
 
 
 __logger=util.mklogger(__name__)
 
-__command=None
 __repeat=False
 __nograph=False
 
@@ -80,24 +74,20 @@ def _measure_start(macro):
     while msvcrt.kbhit():#既に入っている入力は消す
         msvcrt.getwch()
 
-    if macro.on_command is not None:
-        cmthr=threading.Thread(target=_wait_command_input)
-        cmthr.setDaemon(True)
-        cmthr.start()
-
+    command_receiver=CommandReceiver(macro.on_command)
 
     printlog("measuring start...")
     __state=State.UPDATE
-    global __command
     while True:#測定終了までupdateを回す
         if __isfinish.value==1:
             break
-        if __command is None:
+        command=command_receiver.get_command()
+        if command is None:
             flag=macro.update()
-            if flag==False:__isfinish.value=1
+            if flag==False:
+                __isfinish.value=1
         else:
-            macro.on_command(__command) #コマンドが入っていればコマンドを呼ぶ
-            __command=None
+            macro.on_command(command) #コマンドが入っていればコマンドを呼ぶ
 
 
     printlog("measurement has finished...")
@@ -165,26 +155,34 @@ def _end():
             break
         time.sleep(0.05)
     
+class CommandReceiver():
 
+    __command:Optional[str]=None
+    __isfinish:bool=False
 
+    def __init__(self,command_func) -> None:
+        if command_func is not None:
+            cmthr=threading.Thread(target=self.__command_receive_thread)
+            cmthr.setDaemon(True)
+            cmthr.start()
+
+    def __command_receive_thread(self) -> None:#終了コマンドの入力待ち, これは別スレッドで動かす
+        while True:
+            if msvcrt.kbhit() and not self.__isfinish: #入力が入って初めてinputが動くように(inputが動くとその間ループを抜けられないので)
+                self.__command=inputlog()
+                while self.__command is not None:
+                    time.sleep(0.1)
+            elif self.__isfinish:
+                break
+            time.sleep(0.1)
         
-def _wait_command_input():#終了コマンドの入力待ち, これは別スレッドで動かす
-    while True:
-        isf=__isfinish.value
-        if msvcrt.kbhit() and isf==0: #入力が入って初めてinputが動くように(inputが動くとその間ループを抜けられないので)
-            command=inputlog()
-            global __command
-            __command=command
-            while __command is not None:
-                time.sleep(0.1)
-        elif isf==1:
-            break
-        time.sleep(0.1)
-
-
-
+    def get_command(self) -> str:
+        send=self.__command
+        self.__command=None
+        return send
     
-
+    def finish(self):
+        self.__isfinish=True
 
 
 def set_calibration(filepath_calb=None):#プラチナ温度計の抵抗値を温度に変換するためのファイルを読み込み
