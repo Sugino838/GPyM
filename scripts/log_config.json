@@ -13,12 +13,20 @@
       "formatter": "default",
       "stream": "ext://sys.stdout"
     },
-    "fileHandler": {
+    "sharedFileHandler": {
       "class": "logging.FileHandler",
-      "level": "INFO",
+      "level": "WARNING",
       "formatter": "default",
       "filename": "",
       "encoding": "utf-8"
+    },
+    "localFileHandler": {
+      "class": "logging.handlers.RotatingFileHandler",
+      "level": "INFO",
+      "formatter": "default",
+      "filename": "",
+      "encoding": "utf-8",
+      "maxBytes": 102400
     }
   },
   "root": {
