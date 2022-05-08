@@ -5,7 +5,7 @@ from logging import Logger, config, getLogger
 
 from chardet.universaldetector import UniversalDetector
 
-import variables as vars
+from . import variables as vars
 
 
 def setlog():
