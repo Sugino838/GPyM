@@ -2,13 +2,14 @@ import ctypes
 import os
 import sys
 from logging import getLogger
+from pathlib import Path
 
 import measurementManager as mm
 import variables as vars
 from define import read_deffile
 from inputModule import ask_open_filename
 from macro import get_macro, get_macro_bunkatsu, get_macropath
-from utilityModule import setlog
+from utilityModule import set_user_log, setlog
 
 logger = getLogger(__name__)
 
@@ -33,6 +34,8 @@ def main():
     # 定義ファイル読み取り
     read_deffile()
 
+    set_user_log(vars.TEMPDIR)
+
     macropath, _, macrodir = get_macropath()
 
     macro = get_macro(macropath)
@@ -40,9 +43,9 @@ def main():
     # カレントディレクトリを測定マクロ側に変更
     os.chdir(macrodir)
 
-
     # 測定開始
     mm._measure_start(macro)
+
 
 def bunkatsu_only():
     print("分割マクロ選択...")
@@ -56,12 +59,17 @@ def bunkatsu_only():
     def noop(address):
         return None
 
-    import GPIBModule
+    try:
+        import GPIBModule
 
-    # GPIBモジュールの関数を書き換えてGPIBがつながって無くてもエラーが出ないようにする
-    GPIBModule.get_instrument = noop
-    logger.info("you can't use GPIB.get_instrument in GPyM_bunkatsu")
-    logger.info("you can't use most of measurementManager's methods in GPyM_bunkatsu")
+        # GPIBモジュールの関数を書き換えてGPIBがつながって無くてもエラーが出ないようにする
+        GPIBModule.get_instrument = noop
+        logger.info("you can't use GPIB.get_instrument in GPyM_bunkatsu")
+        logger.info(
+            "you can't use most of measurementManager's methods in GPyM_bunkatsu"
+        )
+    except Exception:
+        pass
 
     target = get_macro_bunkatsu(macroPath)
 
@@ -70,19 +78,14 @@ def bunkatsu_only():
         filetypes=[("データファイル", "*.txt *dat")], title="分割するファイルを選択してください"
     )
 
-    mm._set_variables(
-        datadir=None,
-        tempdir=None,
-        file_label=None,
-        shared_settings_dir=vars.SHARED_SETTINGSDIR,
-    )
     target.bunkatsu(filePath)
     input()
 
 
 def setting():
     """変数のセット"""
-    setlog()
+
+    vars.init(Path.cwd())
 
     # 簡易編集モードをOFFにするためのおまじない
     kernel32 = ctypes.windll.kernel32
@@ -93,6 +96,7 @@ def setting():
 
 if __name__ == "__main__":
     setting()
+    setlog()
 
     mode = ""
     args = sys.argv

@@ -1,7 +1,10 @@
 import json
 import logging
+from ast import For
 from datetime import datetime
-from logging import Logger, config, getLogger
+from logging import INFO, Formatter, Logger, config, getLogger
+from logging.handlers import RotatingFileHandler
+from pathlib import Path
 
 from chardet.universaldetector import UniversalDetector
 
@@ -13,16 +16,25 @@ def setlog():
         conf = json.load(f)
 
         now = datetime.now()
-        filename = f"{now.year}-{now.month}.log"
 
-        # 月ごとに新しいファイルにログを書き出す、ただし100k byte超えると古いものから消える
-        conf["handlers"]["localFileHandler"]["filename"] = "log\\" + filename
         # 月ごとに新しいファイルにログを書き出す
         conf["handlers"]["sharedFileHandler"]["filename"] = str(
-            vars.SHARED_LOGDIR / filename
+            vars.SHARED_LOGDIR / f"{now.year}-{now.month}.log"
         )
 
         config.dictConfig(conf)
+
+
+def set_user_log(path: str):
+    path = Path(path) / "log.txt"
+    handler = RotatingFileHandler(filename=path, encoding="utf-8", maxBytes=1024 * 100,)
+    fmt = Formatter(
+        "[%(asctime)s] [%(levelname)8s] [%(filename)s:%(lineno)s %(funcName)s]  %(message)s"
+    )
+
+    handler.setLevel(INFO)
+    handler.setFormatter(fmt)
+    getLogger().addHandler(handler)
 
 
 # テキストファイルの文字コードを判別する. ほぼコピペ

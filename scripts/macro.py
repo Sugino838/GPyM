@@ -103,13 +103,13 @@ def get_macro(macropath: Path):
     if UNDIFINE_ERROR:
         raise MacroError("macroの関数定義が正しくありません")
 
-    target._data_label=data_label
+    target._data_label = data_label
     return target
 
 
 def get_macro_bunkatsu(macroPath: Path):
     macroname = macroPath.stem
-    spec = spec_from_loader(macroname, SourceFileLoader(macroname, macroPath))
+    spec = spec_from_loader(macroname, SourceFileLoader(macroname, str(macroPath)))
     target = module_from_spec(spec)
     spec.loader.exec_module(target)
 

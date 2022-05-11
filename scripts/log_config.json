@@ -19,18 +19,13 @@
       "formatter": "default",
       "filename": "",
       "encoding": "utf-8"
-    },
-    "localFileHandler": {
-      "class": "logging.handlers.RotatingFileHandler",
-      "level": "INFO",
-      "formatter": "default",
-      "filename": "",
-      "encoding": "utf-8",
-      "maxBytes": 102400
     }
   },
   "root": {
     "level": "INFO",
-    "handlers": ["consoleHandler", "localFileHandler", "sharedFileHandler"]
+    "handlers": [
+      "consoleHandler",
+      "sharedFileHandler"
+    ]
   }
 }
