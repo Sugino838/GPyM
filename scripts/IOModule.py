@@ -29,23 +29,28 @@ class FileManager:  # ファイルの管理
 
     """
 
-    filepath: str
-    filename: str
-    file = None
-    _user_label = ""
+    _filepath: str
+    _filename: str
+    _file = None
+    __prewrite = ""
+
+    @property
+    def filepath(self):
+        return self._filepath
+
+    @property
+    def filename(self):
+        return self._filename
+
+    @filename.setter
+    def filename(self, new_filename):
+        if self.has_fileNG_word(new_filename):
+            inputlog("Error : 以下の文字列はファイル名に使えません. 入力し直してください")
+            raise Exception("Error : 以下の文字列はファイル名に使えません. 入力し直してください")
+        self._filename = self.get_date_text() + "_" + new_filename
 
     def __init__(self) -> None:
-        self.filename = self.get_date_text() + "_"
-        pass
-
-    def set_file_name(self, filename: str) -> None:
-        ngwords = ["\\", "/", "?", '"', "<", ">", "|", ":", "*"]  # ファイルに使えない文字
-        for ng in ngwords:
-            if ng in filename:
-                inputlog("Error : 以下の文字列はファイル名に使えません. 入力し直してください")
-                raise Exception("Error : 以下の文字列はファイル名に使えません. 入力し直してください")
-
-        self.filename = self.get_date_text() + "_" + filename
+        self._filename = self.get_date_text() + "_"
         pass
 
     def get_date_text(self) -> str:
@@ -68,7 +73,7 @@ class FileManager:  # ファイルの管理
         )
         return datelabel
 
-    def create_file(self, data_label: str, is_bunkatsu: bool) -> None:
+    def create_file(self, do_make_folder: bool) -> None:
         """
         フォルダが無ければエラーを出し､あれば新規でファイルを作り､__savefileに代入
         """
@@ -78,19 +83,19 @@ class FileManager:  # ファイルの管理
                 vars.DATADIR + "のフォルダにアクセスしようとしましたが､存在しませんでした", __logger
             )
 
-        if is_bunkatsu:
-            nowdatadir = vars.DATADIR + "\\" + self.filename
+        if do_make_folder:
+            nowdatadir = vars.DATADIR + "\\" + self._filename
             os.mkdir(nowdatadir)
-            self.filepath = nowdatadir + "\\" + self.filename + ".txt"
+            self._filepath = nowdatadir + "\\" + self._filename + ".txt"
         else:
-            self.filepath = vars.DATADIR + "\\" + self.filename + ".txt"
+            self._filepath = vars.DATADIR + "\\" + self._filename + ".txt"
 
-        self.file = open(self.filepath, "x", encoding="utf-8")  # ファイル作成
+        self._file = open(self._filepath, "x", encoding="utf-8")  # ファイル作成
 
-        file_label = self._user_label + data_label + "\n"
-        self.file.write(file_label)  # 測定データのラベル書き込み
-
-        self.file.flush()  # 書き込みを反映させる
+        if self.__prewrite != "":
+            self._file.write(self.__prewrite)  # 今までに書き込んだ分を入力
+            self._file.flush()
+            self.__prewrite = ""
 
     def save(self, data: Union[str, tuple]):
 
@@ -101,7 +106,7 @@ class FileManager:  # ファイルの管理
             )
 
         if type(data) is str:  # 文字列を入力したときにも一応対応
-            self.file.write(data)  # 書き込み
+            self._file.write(data)  # 書き込み
         else:
             text = ""
             for i in range(len(data)):  # タプルの全要素をstringにして並べる
@@ -110,20 +115,25 @@ class FileManager:  # ファイルの管理
                 else:
                     text += "," + str(data[i])
             text += "\n"  # 末尾に改行記号
-            self.file.write(text)  # 書き込み
-        self.file.flush()  # 反映.
+            self._file.write(text)  # 書き込み
+        self._file.flush()  # 反映.
 
-    def write(self, text):
-        self.file.write(text)
-        self.file.flush()
+    def write(self, text: str):
+        if self._file == None:
+            self.__prewrite += text
+        else:
+            self._file.write(text)
+            self._file.flush()
 
-    def set_label(self, label: str) -> None:
-        if not label[-1] == "\n":  # 末尾に改行コードがついていなければくっつける
-            label += "\n"
-        self._user_label = self._user_label + label
+    def has_fileNG_word(self, text: str) -> bool:
+        ngwords = ["\\", "/", "?", '"', "<", ">", "|", ":", "*"]  # ファイルに使えない文字
+        for ng in ngwords:
+            if ng in text:
+                return True
+        return False
 
     def close(self):
-        self.file.close()
+        self._file.close()
 
 
 class CommandReceiver:  # コマンドの入力を受け取るクラス
