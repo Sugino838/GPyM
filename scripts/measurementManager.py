@@ -237,7 +237,7 @@ def set_plot_info(
     )
 
 
-def save_data(data):  # データ保存
+def save_data(*data):  # データ保存
     """
     引数のデータをファイルに書き込む.
     この関数が呼ばれるごとに書き込みの反映( __savefile.flush)をおこなっているので途中で測定が落ちてもそれまでのデータは残るようになっている.
@@ -253,11 +253,7 @@ def save_data(data):  # データ保存
     """
     if _state != State.UPDATE and _state != State.END:
         __logger.warning(sys._getframe().f_code.co_name + "はupdateもしくはend関数内で用いてください")
-    _file_manager.save(data)
-
-
-def write_file(text):
-    _file_manager.write(text)
+    _file_manager.save(*data)
 
 
 def plot_data(x, y, label="default"):  # データをグラフにプロット

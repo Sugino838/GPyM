@@ -33,6 +33,7 @@ class FileManager:  # ファイルの管理
     _filename: str
     _file = None
     __prewrite = ""
+    delimiter = ","
 
     @property
     def filepath(self):
@@ -97,26 +98,18 @@ class FileManager:  # ファイルの管理
             self._file.flush()
             self.__prewrite = ""
 
-    def save(self, data: Union[str, tuple]):
+    def save(self, *args):
 
-        if type(data) is not str and not isinstance(data, tuple):
-            raise util.create_error(
-                sys._getframe().f_code.co_name + ": dataはタプル型､もしくはstring型でなければなりません",
-                __logger,
-            )
+        text = ""
 
-        if type(data) is str:  # 文字列を入力したときにも一応対応
-            self._file.write(data)  # 書き込み
-        else:
-            text = ""
-            for i in range(len(data)):  # タプルの全要素をstringにして並べる
-                if i == 0:
-                    text += str(data[0])
-                else:
-                    text += "," + str(data[i])
-            text += "\n"  # 末尾に改行記号
-            self._file.write(text)  # 書き込み
-        self._file.flush()  # 反映.
+        for data in args:
+            if isinstance(data, tuple) or data is list:
+                text += self.delimiter.join(map(str, data))
+            else:
+                text += str(data)
+            text += self.delimiter
+        text = text[0:-1] + "\n"
+        self.write(text)
 
     def write(self, text: str):
         if self._file == None:
