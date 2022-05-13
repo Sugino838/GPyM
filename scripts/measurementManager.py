@@ -44,6 +44,8 @@ __logger = util.mklogger(__name__)
 __nograph = False
 
 is_finish = False
+_file_manager = io.FileManager()
+_plot_agency = io.PlotAgency()
 
 
 def _measure_start(macro):
@@ -52,9 +54,6 @@ def _measure_start(macro):
     ここでそれぞれの関数を適切なタイミングで呼んでいる
 
     """
-    global _file_manager, _plot_agency
-    _file_manager = io.FileManager()
-    _plot_agency = io.PlotAgency()
 
     global _state
     _state = State.READY
@@ -66,10 +65,8 @@ def _measure_start(macro):
         _state = State.START
         macro.start()
 
-    # filename = _get_filename()
     _file_manager.create_file(
-        data_label=macro._data_label,
-        is_bunkatsu=(macro.bunkatsu is not None),
+        do_make_folder=(macro.bunkatsu is not None),
     )  # ファイル作成
 
     if not __nograph:
@@ -121,7 +118,7 @@ def finish():
 
 
 def set_file_name(filename):
-    _file_manager.set_file_name(filename)
+    _file_manager.filename = filename
 
 
 def _end():
@@ -174,12 +171,12 @@ def set_calibration(filepath_calib=None):
     この関数は非推奨です。calibration.pyを作ったのでそちらをから呼んでください
     プラチナ温度計の抵抗値を温度に変換するためのファイルを読み込み
     """
-    global calibration
-    calibration = calib.TMRCalibration()
+    global calibration_manager
+    calibration_manager = calib.TMRCalibrationManager()
     if filepath_calib == None:
-        calibration.set_shared_calib_file()
+        calibration_manager.set_shared_calib_file()
     else:
-        calibration.set_own_calib_file(filepath_calib)
+        calibration_manager.set_own_calib_file(filepath_calib)
 
 
 def calibration(x):
@@ -187,15 +184,18 @@ def calibration(x):
     この関数は非推奨です。calibration.pyを作ったのでそちらをから呼んでください
     プラチナ温度計の抵抗値xに対応する温度yを線形補間で返す
     """
-    global calibration
-    return calibration.calibration(x)
+    global calibration_manager
+    return calibration_manager.calibration(x)
 
 
 def set_label(label):
     if _state != State.START:
         __logger.warning(sys._getframe().f_code.co_name + "はstart関数内で用いてください")
-    global _file_manager
-    _file_manager.set_label(label=label)
+    _file_manager.write(label)
+
+
+def write_file(text: str):
+    _file_manager.write(text)
 
 
 def set_plot_info(
@@ -237,7 +237,7 @@ def set_plot_info(
     )
 
 
-def save_data(data):  # データ保存
+def save_data(*data):  # データ保存
     """
     引数のデータをファイルに書き込む.
     この関数が呼ばれるごとに書き込みの反映( __savefile.flush)をおこなっているので途中で測定が落ちてもそれまでのデータは残るようになっている.
@@ -253,12 +253,7 @@ def save_data(data):  # データ保存
     """
     if _state != State.UPDATE and _state != State.END:
         __logger.warning(sys._getframe().f_code.co_name + "はupdateもしくはend関数内で用いてください")
-    global _file_manager
-    _file_manager.save(data)
-
-
-def write_file(text):
-    _file_manager.write(text)
+    _file_manager.save(*data)
 
 
 def plot_data(x, y, label="default"):  # データをグラフにプロット

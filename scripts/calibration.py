@@ -1,12 +1,14 @@
 import os
-import variables as vars
-import utilityModule as util
+
 from scipy import interpolate
+
+import utilityModule as util
+import variables as vars
 from utilityModule import printlog
 
 __logger=util.mklogger(__name__)
 
-class TMRCalibration():
+class TMRCalibrationManager():
 
     """
     TMRの温度校正を行う

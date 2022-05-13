@@ -88,22 +88,9 @@ def get_macro(macropath: Path):
     if len(UNDIFINE_WARNING) > 0:
         logger.info("UNDEFINED FUNCTION: " + ", ".join(UNDIFINE_WARNING))
 
-    if issubclass(target.Data, tuple):
-        data = []
-        count = 1
-        for s in target.Data._fields:
-            data.append(f"[{count}]{s}")
-            count += 1
-        data_label = ", ".join(data)
-    else:
-        data_label = ""
-        logger.error("Dataをnamedtupleで定義してください")
-        UNDIFINE_ERROR = True
-
     if UNDIFINE_ERROR:
         raise MacroError("macroの関数定義が正しくありません")
 
-    target._data_label = data_label
     return target
 
 
