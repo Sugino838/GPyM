@@ -3,6 +3,7 @@ import os
 import sys
 import threading
 import time
+from enum import Flag, auto
 from mimetypes import init
 from typing import Optional, Union
 
@@ -11,6 +12,14 @@ import variables as vars
 from utilityModule import inputlog
 
 __logger = util.mklogger(__name__)
+
+
+class MeasurementState(Flag):
+    READY = auto()
+    START = auto()
+    UPDATE = auto()
+    END = auto()
+    AFTER = auto()
 
 
 class FileManager:  # ファイルの管理
@@ -52,7 +61,6 @@ class FileManager:  # ファイルの管理
 
     def __init__(self) -> None:
         self._filename = self.get_date_text() + "_"
-        pass
 
     def get_date_text(self) -> str:
         import datetime
@@ -174,13 +182,14 @@ import windowModule
 
 
 class PlotAgency:
-    def __init__(self) -> None:
-        self.set_plot_info()
 
     share_list: List[tuple]
-    is_finish: Value
+    __isfinish: Value
     process_lock: Lock
     window_process: Process
+
+    def __init__(self) -> None:
+        self.set_plot_info()
 
     def run_plot_window(self):  # グラフと終了コマンド待ち処理を走らせる
         """
@@ -191,12 +200,12 @@ class PlotAgency:
         """
 
         self.share_list = Manager().list()  # プロセス間で共有できるリスト
-        self.is_finish = Value("i", 0)  # 測定の終了を判断するためのint
+        self.__isfinish = Value("i", 0)  # 測定の終了を判断するためのint
         self.process_lock = Lock()  # 2つのプロセスで同時に同じデータを触らないようにする排他制御のキー
         # グラフ表示は別プロセスで実行する
         self.window_process = Process(
             target=windowModule.exec,
-            args=(self.share_list, self.is_finish, self.process_lock, self.plot_info),
+            args=(self.share_list, self.__isfinish, self.process_lock, self.plot_info),
         )
         self.window_process.daemon = True  # プロセスのデーモン化
         self.window_process.start()  # マルチプロセス実行
@@ -293,13 +302,14 @@ class PlotAgency:
 
         """
 
-        data = (x, y, label)
-        self.process_lock.acquire()  #   ロックをかけて別プロセスからアクセスできないようにする
-        self.share_list.append(data)  # プロセス間で共有するリストにデータを追加
-        self.process_lock.release()  # ロック解除
+        if self.is_plot_window_alive():
+            data = (x, y, label)
+            self.process_lock.acquire()  #   ロックをかけて別プロセスからアクセスできないようにする
+            self.share_list.append(data)  # プロセス間で共有するリストにデータを追加
+            self.process_lock.release()  # ロック解除
 
     def stop_renew_plot_window(self):
-        self.is_finish.value = 1
+        self.__isfinish.value = 1
 
     def close(self):
         self.window_process.terminate()
@@ -307,16 +317,23 @@ class PlotAgency:
     def is_plot_window_alive(self) -> bool:
         return self.window_process.is_alive()
 
+    def is_plot_window_forced_terminated(self) -> bool:
+        return not self.window_process.is_alive()
+
     def not_run_plot_window(self):
         def void(*args):
             pass
 
-        def voidbool(*args):
-            return False
+        def void_constant(value):
+            def void(*args):
+                return value
+
+            return void
 
         self.run_plot_window = void
         self.set_plot_info = void
         self.plot = void
         self.stop_renew_plot_window = void
         self.close = void
-        self.is_plot_window_alive = voidbool
+        self.is_plot_window_alive = void_constant(False)
+        self.is_plot_window_forced_terminated = void_constant(False)

@@ -6,7 +6,6 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from ctypes import Union
-from enum import Enum, auto
 from multiprocessing import Lock, Manager, Process, Value
 from typing import Any, Optional, Union
 
@@ -17,10 +16,15 @@ from scipy import interpolate
 
 import calibration as calib
 import inputModule as inp
-import IOModule as io
 import utilityModule as util
 import variables as vars
 import windowModule
+from measurementManagerSupport import (
+    CommandReceiver,
+    FileManager,
+    MeasurementState,
+    PlotAgency,
+)
 from utilityModule import GPyMException, inputlog, printlog
 
 """
@@ -30,140 +34,146 @@ from utilityModule import GPyMException, inputlog, printlog
 """
 
 
-class State(Enum):
-    READY = auto()
-    START = auto()
-    UPDATE = auto()
-    END = auto()
-    BUNKATSU = auto()
-    ALLEND = auto()
-
-
 __logger = util.mklogger(__name__)
 
-__nograph = False
 
-is_finish = False
-_file_manager = io.FileManager()
-_plot_agency = io.PlotAgency()
+class MeasurementManager:
+
+    is_finish = False
+    file_manager = None
+    plot_agency = None
+    command_receiver = None
+    state = MeasurementState.READY
+
+    def __init__(self, macro) -> None:
+        self.macro = macro
+        self.file_manager = FileManager()
+        self.plot_agency = PlotAgency()
+        self.command_receiver = CommandReceiver()
+
+    def measure_start(self):
+        """
+        測定のメインとなる関数. 測定マクロに書かれた各関数はMAIN.pyによってここに渡されて
+        ここでそれぞれの関数を適切なタイミングで呼んでいる
+
+        """
+
+        self.state = MeasurementState.READY
+
+        while msvcrt.kbhit():  # 既に入っている入力は消す
+            msvcrt.getwch()
+
+        self.state = MeasurementState.START
+
+        if self.macro.start is not None:
+            self.macro.start()
+
+        self.file_manager.create_file(
+            do_make_folder=(self.macro.bunkatsu is not None),
+        )  # ファイル作成
+
+        self.plot_agency.run_plot_window()  # グラフウィンドウの立ち上げ
+
+        while msvcrt.kbhit():  # 既に入っている入力は消す
+            msvcrt.getwch()
+
+        if self.macro.on_command is not None:
+            self.command_receiver.initialize()
+
+        printlog("measuring start...")
+        self.state = MeasurementState.UPDATE
+
+        while True:  # 測定終了までupdateを回す
+            if self.is_finish:
+                break
+            command = self.command_receiver.get_command()
+            if command is None:
+                flag = self.macro.update()
+                if flag == False:
+                    self.is_finish = True
+            else:
+                self.macro.on_command(command)  # コマンドが入っていればコマンドを呼ぶ
+
+            if self.plot_agency.is_plot_window_forced_terminated():
+                self.is_finish = True
+
+        self.command_receiver.close()
+        self.plot_agency.stop_renew_plot_window()
+
+        printlog("measurement has finished...")
+
+        if self.macro.end is not None:
+            self.state = MeasurementState.END
+            self.macro.end()
+
+        self.file_manager.close()
+
+        self.state = MeasurementState.AFTER
+        if self.macro.bunkatsu is not None:
+            self.macro.bunkatsu(self.file_manager.filepath)
+
+        self.end()
+
+    def end(self):
+        """
+        終了処理. コンソールからの終了と､グラフウィンドウを閉じたときの終了の2つを実行できるようにスレッドを用いる
+        """
+
+        def wait_enter():  # コンソール側の終了
+            nonlocal endflag, windowclose  # nonlocalを使うとクロージャーになる
+            inputlog("enter and close window...")  # エンターを押したら次へ進める
+            endflag = True
+            windowclose = True
+
+        def wait_closewindow():  # グラフウィンドウからの終了
+            nonlocal endflag
+            while True:
+                # print(self.plot_agency.is_plot_window_alive())
+                if not self.plot_agency.is_plot_window_alive():
+                    break
+                time.sleep(0.2)
+            endflag = True
+
+        endflag = False
+        windowclose = False
+
+        thread1 = threading.Thread(target=wait_closewindow)
+        thread1.setDaemon(True)
+        thread1.start()
+
+        time.sleep(0.1)
+
+        endflag = (
+            False  # 既にグラフが消えていた場合はwait_enterを終了処理とする. それ以外の場合はwait_closewindowも終了処理とする
+        )
+
+        thread2 = threading.Thread(target=wait_enter)
+        thread2.setDaemon(True)
+        thread2.start()
+
+        while True:
+            if endflag:
+                if not windowclose:
+                    self.plot_agency.close()
+                break
+            time.sleep(0.05)
 
 
-def _measure_start(macro):
-    """
-    測定のメインとなる関数. 測定マクロに書かれた各関数はMAIN.pyによってここに渡されて
-    ここでそれぞれの関数を適切なタイミングで呼んでいる
+_measurement_manager: MeasurementManager = None
 
-    """
 
-    global _state
-    _state = State.READY
-
-    while msvcrt.kbhit():  # 既に入っている入力は消す
-        msvcrt.getwch()
-
-    if macro.start is not None:
-        _state = State.START
-        macro.start()
-
-    _file_manager.create_file(
-        do_make_folder=(macro.bunkatsu is not None),
-    )  # ファイル作成
-
-    if not __nograph:
-        _plot_agency.run_plot_window()  # グラフウィンドウの立ち上げ
-
-    while msvcrt.kbhit():  # 既に入っている入力は消す
-        msvcrt.getwch()
-
-    command_receiver = io.CommandReceiver()
-    if macro.on_command is not None:
-        command_receiver.initialize()
-
-    printlog("measuring start...")
-    _state = State.UPDATE
-    global is_finish
-    while True:  # 測定終了までupdateを回す
-        if is_finish:
-            break
-        command = command_receiver.get_command()
-        if command is None:
-            flag = macro.update()
-            if flag == False:
-                is_finish = True
-        else:
-            macro.on_command(command)  # コマンドが入っていればコマンドを呼ぶ
-
-    command_receiver.close()
-    _plot_agency.stop_renew_plot_window()
-
-    printlog("measurement has finished...")
-
-    if macro.end is not None:
-        _state = State.END
-        macro.end()
-
-    _file_manager.close()
-
-    if macro.bunkatsu is not None:
-        _state = State.BUNKATSU
-        macro.bunkatsu(_file_manager.filepath)
-    _state = State.ALLEND
-
-    _end()
+def start(macro):
+    global _measurement_manager
+    _measurement_manager = MeasurementManager(macro)
+    _measurement_manager.measure_start()
 
 
 def finish():
-    global is_finish
-    is_finish = True
+    _measurement_manager.is_finish = True
 
 
 def set_file_name(filename):
-    _file_manager.filename = filename
-
-
-def _end():
-    """
-    終了処理. コンソールからの終了と､グラフウィンドウを閉じたときの終了の2つを実行できるようにスレッドを用いる
-    """
-
-    def wait_enter():  # コンソール側の終了
-        nonlocal endflag, windowclose  # nonlocalを使うとクロージャーになる
-        inputlog("enter and close window...")  # エンターを押したら次へ進める
-        endflag = True
-        windowclose = True
-
-    def wait_closewindow():  # グラフウィンドウからの終了
-        nonlocal endflag
-        while True:
-            # print(_plot_agency.is_plot_window_alive())
-            if not _plot_agency.is_plot_window_alive():
-                break
-            time.sleep(0.2)
-        endflag = True
-
-    endflag = False
-    windowclose = False
-
-    thread1 = threading.Thread(target=wait_closewindow)
-    thread1.setDaemon(True)
-    thread1.start()
-
-    time.sleep(0.1)
-
-    endflag = (
-        False  # 既にグラフが消えていた場合はwait_enterを終了処理とする. それ以外の場合はwait_closewindowも終了処理とする
-    )
-
-    thread2 = threading.Thread(target=wait_enter)
-    thread2.setDaemon(True)
-    thread2.start()
-
-    while True:
-        if endflag:
-            if not windowclose:
-                _plot_agency.close()
-            break
-        time.sleep(0.05)
+    _measurement_manager.file_manager.filename = filename
 
 
 def set_calibration(filepath_calib=None):
@@ -189,13 +199,13 @@ def calibration(x):
 
 
 def set_label(label):
-    if _state != State.START:
+    if _measurement_manager.state != MeasurementState.START:
         __logger.warning(sys._getframe().f_code.co_name + "はstart関数内で用いてください")
-    _file_manager.write(label)
+    _measurement_manager.file_manager.write(label)
 
 
 def write_file(text: str):
-    _file_manager.write(text)
+    _measurement_manager.file_manager.write(text)
 
 
 def set_plot_info(
@@ -225,9 +235,12 @@ def set_plot_info(
 
     """
 
-    if _state != State.READY and _state != State.START:
+    if (
+        _measurement_manager.state != MeasurementState.READY
+        and _measurement_manager.state != MeasurementState.START
+    ):
         __logger.warning(sys._getframe().f_code.co_name + "はstart関数内で用いてください")
-    _plot_agency.set_plot_info(
+    _measurement_manager.plot_agency.set_plot_info(
         line=line,
         xlog=xlog,
         ylog=ylog,
@@ -251,9 +264,12 @@ def save_data(*data):  # データ保存
         書き込むデータ
 
     """
-    if _state != State.UPDATE and _state != State.END:
+    if (
+        _measurement_manager.state != MeasurementState.UPDATE
+        and _measurement_manager.state != MeasurementState.END
+    ):
         __logger.warning(sys._getframe().f_code.co_name + "はupdateもしくはend関数内で用いてください")
-    _file_manager.save(*data)
+    _measurement_manager.file_manager.save(*data)
 
 
 def plot_data(x, y, label="default"):  # データをグラフにプロット
@@ -279,31 +295,14 @@ def plot(x, y, label="default"):
 
     """
 
-    if _state != State.UPDATE:
+    if _measurement_manager.state != MeasurementState.UPDATE:
         __logger.warning(sys._getframe().f_code.co_name + "はstartもしくはupdate関数内で用いてください")
-    _plot_agency.plot(x, y, label)
 
-
-def _get_filename():  # ファイル名入力
-    def _copy_prefilename():  # 前回のファイル名をコピー
-        path = vars.TEMPDIR + "\\prefilename"
-        if os.path.isfile(path):
-            with open(path, mode="r", encoding=util.get_encode_type(path)) as f:
-                prefilename = f.read()
-                pyperclip.copy(prefilename)
-
-    def _set_filename(filename):  # ファイル名をtemodirに保存
-        path = vars.TEMPDIR + "\\prefilename"
-        with open(path, mode="w", encoding="utf-8") as f:
-            f.write(filename)
-
-    _copy_prefilename()
-    filename, _datelabel, filename_withoutdate = inp.get_filename()
-    _set_filename(filename_withoutdate)
-    return filename
+    if not _measurement_manager.is_finish:
+        _measurement_manager.plot_agency.plot(x, y, label)
 
 
 def no_plot():
-    if _state != State.START:
+    if _measurement_manager.state != MeasurementState.START:
         __logger.warning(sys._getframe().f_code.co_name + "はstart関数内で用いてください")
-    _plot_agency.not_run_plot_window()
+    _measurement_manager.plot_agency.not_run_plot_window()

@@ -1,8 +1,12 @@
 import ctypes
 import os
 import sys
+import time
 from logging import getLogger
 from pathlib import Path
+
+import win32api
+import win32con
 
 import measurementManager as mm
 import variables as vars
@@ -43,8 +47,20 @@ def main():
     # カレントディレクトリを測定マクロ側に変更
     os.chdir(macrodir)
 
+    on_forced_termination(lambda: mm.finish())
     # 測定開始
-    mm._measure_start(macro)
+    mm.start(macro)
+
+
+def on_forced_termination(func):
+    def consoleCtrHandler(ctrlType):
+        if ctrlType == win32con.CTRL_CLOSE_EVENT:
+            func()
+            print("terminating measurement...")
+            for i in range(100):
+                time.sleep(1)
+
+    win32api.SetConsoleCtrlHandler(consoleCtrHandler, True)
 
 
 def bunkatsu_only():
