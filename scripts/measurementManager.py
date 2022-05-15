@@ -112,6 +112,9 @@ class MeasurementManager:
         if self.macro.bunkatsu is not None:
             self.macro.bunkatsu(self.file_manager.filepath)
 
+        if self.macro.after is not None:
+            self.macro.after(self.file_manager.filepath)
+
         self.end()
 
     def end(self):

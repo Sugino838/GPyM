@@ -82,7 +82,14 @@ def get_macro(macropath: Path):
         target.bunkatsu = None
         UNDIFINE_WARNING.append("bunkatsu")
     elif target.bunkatsu.__code__.co_argcount != 1:
-        logger.error(target.__name__ + ".bunkatsuには引数を設定してはいけません")
+        logger.error(target.__name__ + ".bunkatsuには引数filepathだけを設定しなければいけません")
+        UNDIFINE_ERROR = True
+
+    if not hasattr(target, "after"):
+        target.after = None
+        UNDIFINE_WARNING.append("after")
+    elif target.after.__code__.co_argcount != 1:
+        logger.error(target.__name__ + ".afterには引数filepathだけを設定しなければいけません")
         UNDIFINE_ERROR = True
 
     if len(UNDIFINE_WARNING) > 0:
