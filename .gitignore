@@ -2,10 +2,9 @@
 /example/
 /TEMP/
 /temp/
-/TEST/
-/test/
 /log/
 __pycache__/
 /SHERED_SEETINGS/
 /shared_settings/
 /GPyM共有設定/
+.pytest_cache

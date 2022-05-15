@@ -8,7 +8,7 @@ from pathlib import Path
 
 from chardet.universaldetector import UniversalDetector
 
-import variables as vars
+from . import variables as vars
 
 
 def setlog():
