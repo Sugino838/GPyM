@@ -4,22 +4,28 @@ import sys
 import threading
 import time
 from enum import Flag, auto
+from logging import getLogger
 from mimetypes import init
 from typing import Optional, Union
 
-import utilityModule as util
+import utility as util
 import variables as vars
-from utilityModule import inputlog
+from log import create_error, inputlog
 
-__logger = util.mklogger(__name__)
+__logger = getLogger(__name__)
 
 
-class MeasurementState(Flag):
+class MeasurementStep(Flag):
     READY = auto()
     START = auto()
     UPDATE = auto()
     END = auto()
     AFTER = auto()
+
+
+class MeasurementState:
+    current_step: MeasurementStep = MeasurementStep.READY
+    is_measuring: bool = False
 
 
 class FileManager:  # ファイルの管理
@@ -88,9 +94,7 @@ class FileManager:  # ファイルの管理
         """
 
         if not os.path.isdir(vars.DATADIR):  # フォルダの存在確認
-            raise util.create_error(
-                vars.DATADIR + "のフォルダにアクセスしようとしましたが､存在しませんでした", __logger
-            )
+            raise create_error(vars.DATADIR + "のフォルダにアクセスしようとしましたが､存在しませんでした", __logger)
 
         if do_make_folder:
             nowdatadir = vars.DATADIR + "\\" + self._filename
@@ -141,10 +145,24 @@ class CommandReceiver:  # コマンドの入力を受け取るクラス
 
     """
     コマンドの入力を検知する
+
+    Attributes
+    ----------
+
+    __comand: Optional[str]
+        入力されたコマンド
+        スレッド間で共有する
+        コマンド入力がないときはNone
+
+    __isfinish:bool
+        測定の終了
     """
 
     __command: Optional[str] = None
-    __isfinish: bool = False
+    __measurement_state = None
+
+    def __init__(self, measurement_state: MeasurementState) -> None:
+        self.__measurement_state = measurement_state
 
     def initialize(self):
         """
@@ -157,36 +175,54 @@ class CommandReceiver:  # コマンドの入力を受け取るクラス
     def __command_receive_thread(self) -> None:  # 終了コマンドの入力待ち, これは別スレッドで動かす
         while True:
             if (
-                msvcrt.kbhit() and not self.__isfinish
+                msvcrt.kbhit() and not self.__measurement_state.is_measuring
             ):  # 入力が入って初めてinputが動くように(inputが動くとその間ループを抜けられないので)
                 self.__command = inputlog()
                 while self.__command is not None:
                     time.sleep(0.1)
-            elif self.__isfinish:
+            elif self.__measurement_state.is_measuring:
                 break
             time.sleep(0.1)
 
-    def get_command(self) -> str:  # 受け取ったコマンドを返す。なければNoneを返す
+    def get_command(self) -> str:  # 受け取ったコマンドを返す. なければNoneを返す
         command = self.__command
         self.__command = None
         return command
-
-    def close(self):
-        self.__isfinish = True
 
 
 from multiprocessing import Lock, Manager, Process, Value
 from typing import List
 
-import windowModule
+import plot
 
 
 class PlotAgency:
 
+    """
+    グラフ描画用のプロセスを別に作成して, そのプロセスに対して
+    プロットするデータを送信する.
+    実際のプロットはplot.pyが行うのでこのクラスはデータを渡すところを担っている.
+
+    Attributes:
+    --------------
+    share_list : List[tupple]
+        plot.pyと共有するリスト. これを使ってplot.py側にデータを送信する.
+
+    __isfinish : Value
+        これもplot.pyと共有。 測定の終了をplot.pyに伝える
+
+    process_lock : Lock
+        これもplot.pyと共有。 share_listへの書き込みを同時に行わないように
+
+    plot_process: Process
+        plot.pyを実行しているプロセス
+
+    """
+
     share_list: List[tuple]
     __isfinish: Value
     process_lock: Lock
-    window_process: Process
+    plot_process: Process
 
     def __init__(self) -> None:
         self.set_plot_info()
@@ -203,12 +239,12 @@ class PlotAgency:
         self.__isfinish = Value("i", 0)  # 測定の終了を判断するためのint
         self.process_lock = Lock()  # 2つのプロセスで同時に同じデータを触らないようにする排他制御のキー
         # グラフ表示は別プロセスで実行する
-        self.window_process = Process(
-            target=windowModule.exec,
+        self.plot_process = Process(
+            target=plot.exec,
             args=(self.share_list, self.__isfinish, self.process_lock, self.plot_info),
         )
-        self.window_process.daemon = True  # プロセスのデーモン化
-        self.window_process.start()  # マルチプロセス実行
+        self.plot_process.daemon = True  # プロセスのデーモン化
+        self.plot_process.start()  # マルチプロセス実行
 
     def set_plot_info(
         self,
@@ -244,32 +280,32 @@ class PlotAgency:
         """
 
         if type(line) is not bool:
-            raise util.create_error(
+            raise create_error(
                 sys._getframe().f_code.co_name + ": lineの値はTrueかFalseです", __logger
             )
         if type(xlog) is not bool or type(ylog) is not bool:
-            raise util.create_error(
+            raise create_error(
                 sys._getframe().f_code.co_name + ": xlog,ylogの値はTrueかFalseです", __logger
             )
         if type(legend) is not bool:
-            raise util.create_error(
+            raise create_error(
                 sys._getframe().f_code.co_name + ": legendの値はTrueかFalseです", __logger
             )
         if type(flowwidth) is not float and type(flowwidth) is not int:
-            raise util.create_error(
+            raise create_error(
                 sys._getframe().f_code.co_name + ": flowwidthの型はintかfloatです", __logger
             )
         if flowwidth < 0:
-            raise util.create_error(
+            raise create_error(
                 sys._getframe().f_code.co_name + ": flowwidthの値は0以上にする必要があります", __logger
             )
         if type(renew_interval) is not float and type(renew_interval) is not int:
-            raise util.create_error(
+            raise create_error(
                 sys._getframe().f_code.co_name + ": renew_intervalの型はintかfloatです",
                 __logger,
             )
         if renew_interval < 0:
-            raise util.create_error(
+            raise create_error(
                 sys._getframe().f_code.co_name + ": renew_intervalの型は0以上にする必要があります",
                 __logger,
             )
@@ -312,15 +348,28 @@ class PlotAgency:
         self.__isfinish.value = 1
 
     def close(self):
-        self.window_process.terminate()
+        self.plot_process.terminate()
 
     def is_plot_window_alive(self) -> bool:
-        return self.window_process.is_alive()
+        """
+        self.plot_processが生きているかどうかを判定
+        """
+
+        return self.plot_process.is_alive()
 
     def is_plot_window_forced_terminated(self) -> bool:
-        return not self.window_process.is_alive()
+        """
+        self.plot_processがバツボタンで強制終了されたかどうかを判定
+        is_plot_window_aliveの逆に見えるが、not_run_plot_windowを実行した場合に挙動が異なる
+        """
+        return not self.plot_process.is_alive()
 
     def not_run_plot_window(self):
+
+        """
+        グラフを表示しないモード
+        """
+
         def void(*args):
             pass
 

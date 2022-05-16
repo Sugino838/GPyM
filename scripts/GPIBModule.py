@@ -1,9 +1,11 @@
 import time
+
 import pyvisa
-import utilityModule as util
 
+import utility as util
 
-logger=util.mklogger(__name__)
+logger = util.mklogger(__name__)
+
 
 def get_instrument(address):
     """
@@ -24,34 +26,42 @@ def get_instrument(address):
     """
 
     if type(address) is int:
-        address=f"GPIB0::{address}::INSTR"
+        address = f"GPIB0::{address}::INSTR"
 
     rm = pyvisa.ResourceManager()
     try:
-        #機器にアクセス. GPIBがつながってないとここでエラーが出る
-        inst = rm.open_resource(address) 
-    except pyvisa.errors.VisaIOError as e: #エラーが出たらここを実行
-        raise util.create_error("GPIBケーブルが抜けている可能性があります",logger)
-    except Exception as e: #エラーの種類に応じて場合分け
-        raise util.create_error("予期せぬエラーが発生しました",logger,e)
+        # 機器にアクセス. GPIBがつながってないとここでエラーが出る
+        inst = rm.open_resource(address)
+    except pyvisa.errors.VisaIOError as e:  # エラーが出たらここを実行
+        raise util.create_error("GPIBケーブルが抜けている可能性があります", logger)
+    except Exception as e:  # エラーの種類に応じて場合分け
+        raise util.create_error("予期せぬエラーが発生しました", logger, e)
 
     try:
-        #IDNコマンドで機器と通信. GPIB番号に機器がないとここでエラー
-        idn=inst.query('*IDN?')
+        # IDNコマンドで機器と通信. GPIB番号に機器がないとここでエラー
+        idn = inst.query("*IDN?")
     except pyvisa.errors.VisaIOError as e:
-        raise util.create_error(address+"が'IDN?'コマンドに応答しません. 設定されているGPIBの番号が間違っている可能性があります",logger,e)
+        raise util.create_error(
+            address + "が'IDN?'コマンドに応答しません. 設定されているGPIBの番号が間違っている可能性があります", logger, e
+        )
     except Exception as e:
-        raise util.create_error("予期せぬエラーが発生しました",logger,e)
+        raise util.create_error("予期せぬエラーが発生しました", logger, e)
 
-    #問題が無ければinstを返す
+    # 問題が無ければinstを返す
     return inst
 
 
-
-def command_check(inst,*commands):
+def command_check(inst, *commands):
     for command in commands:
         try:
-            text=inst.query(command)
+            text = inst.query(command)
         except Exception as e:
-            raise util.create_error("GPIB"+str(inst.primary_address)+"番への'"+command+"'のコマンドでエラーが発生しました",logger,e)
-
+            raise util.create_error(
+                "GPIB"
+                + str(inst.primary_address)
+                + "番への'"
+                + command
+                + "'のコマンドでエラーが発生しました",
+                logger,
+                e,
+            )

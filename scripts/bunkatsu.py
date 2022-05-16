@@ -5,7 +5,7 @@ import time
 import tkinter.filedialog as tkfd
 from tkinter import Tk
 
-import utilityModule as util
+import utility as util
 
 __logger = util.mklogger(__name__)
 
@@ -22,7 +22,7 @@ def heating_cooling_split(
 
     data : 二次元配列
         瞬間の測定値の配列が並んだ二次元配列
-    
+
     T_index : int
         温度が格納されている場所のインデックス(0始まり)
 
@@ -162,7 +162,7 @@ def from_num_to_10Exx(num, significant_digits=2):
 
     significant_digits : int
         変換後の有効数字. significant_digits=3なら10E3.49などが返る
-    
+
     Returns
     _____________
 

@@ -5,8 +5,8 @@ import tkinter.filedialog as tkfd
 from pathlib import Path
 from tkinter import Tk
 
-import utilityModule as util
-from utilityModule import inputlog, printlog
+import utility as util
+from log import inputlog, printlog
 
 
 def get_filename(text="file name is > "):

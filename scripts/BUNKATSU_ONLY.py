@@ -1,14 +1,15 @@
+import ctypes
 import importlib
-import sys
 import os
+import sys
 import tkinter.filedialog as tkfd
+from importlib.machinery import SourceFileLoader
+from importlib.util import module_from_spec, spec_from_loader
 from tkinter import Tk
+
 import inputModule as inp
 import measurementManager as mm
-import utilityModule as util
-from importlib.util import spec_from_loader, module_from_spec
-from importlib.machinery import SourceFileLoader 
-import ctypes
+import utility as util
 
 #簡易編集モードをOFFにするためのおまじない
 kernel32 = ctypes.windll.kernel32

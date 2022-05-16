@@ -4,7 +4,7 @@ from pathlib import Path
 
 import variables as vars
 from inputModule import ask_open_filename
-from utilityModule import GPyMException, get_encode_type
+from utility import GPyMException, get_encode_type
 
 logger = getLogger(__name__)
 
@@ -46,7 +46,6 @@ def read_deffile():
     macrodir = None
     tempdir = None
 
-    
     with path_deffile.open(mode="r", encoding=get_encode_type(path_deffile)) as f:
         # ファイルの中身を1行ずつ見ていく
         for l in f:

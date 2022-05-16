@@ -5,7 +5,7 @@ from pathlib import Path
 
 import variables as vars
 from inputModule import ask_open_filename
-from utilityModule import GPyMException
+from utility import GPyMException
 
 logger = getLogger(__name__)
 
