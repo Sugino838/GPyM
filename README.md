@@ -19,7 +19,7 @@
 - SHERED_SETTINGS: 共有設定フォルダー。キャリブレーションファイルなど共有して扱うものを入れる。
   - calibration_file: ここにキャリブレーションファイルを入れる。
 - TEMP: エラーログや直前に使った定義ファイル名などが保存されている。無くても困らないものをいれる。
-- LOG.txt: ログ。変更が無ければ1万文字分残る。すべてのログが残るわけではなく､ `printlog`、`inputlog`で書き出したものが残る。
+- LOG.txt: ログ。変更が無ければ1万文字分残る。すべてのログが残るわけではなく､ `logger`で書き出したものが残る。
 - ERRORLOG.txt: エラーログ。変更が無ければ3千文字分残る。
 - Example: 使い方の例としていくつかの測定マクロがある。
 
@@ -184,15 +184,6 @@ bu.TMR_bunkatsu(filepath, T_index, f_index, freq_num=16, threshold=0)
 ```python
 # 基本的にはprint、inputと同じだがこれを使うとTEMPフォルダーのLOG.txtにログが残る
 
-# printしてログに書き込む、printと違って書き出せるのは文字列だけでなおかつ書き出しの引数は1つだけ
-# text (str): 書き出す文字列
-# isprint (bool): コンソールウィンドウに書き出すかどうか（Falseだとログにだけ書き込む）
-printlog(text,isprint=True)
-
-# inputと同じ（たぶん）
-# text: inputと同じ（たぶん）
-inputlog(text)
-```
 
 ## FAQ
 

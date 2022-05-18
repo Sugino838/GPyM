@@ -2,16 +2,18 @@ import datetime
 import os
 import sys
 import tkinter.filedialog as tkfd
+from logging import getLogger
 from pathlib import Path
 from tkinter import Tk
 
-import utilityModule as util
-from utilityModule import inputlog, printlog
+import utility as util
+
+logger = getLogger(__name__)
 
 
 def get_filename(text="file name is > "):
     """
-    出力ファイル名を取得
+    出力ファイル名を取得__logger
 
     Returns
     _____________
@@ -23,13 +25,10 @@ def get_filename(text="file name is > "):
     wordok = False
     while not wordok:
 
-        filename = inputlog(text)
+        filename = input(text)
         for ng in ngwords:
             if ng in filename:
-                printlog("WARNING : 以下の文字列はファイル名に使えません. 入力し直してください")
-                for w in ngwords:
-                    print(w, end="")
-                print("")
+                logger.warning(f"以下の文字列はファイル名に使えません. 入力し直してください : {' '.join(ngwords)}")
                 break
         else:
             wordok = True
@@ -78,7 +77,7 @@ def read_defdir(dirpath=None, filename=None):
 
     tk.destroy()  # これとtk=Tk()がないと謎のウィンドウが残って邪魔になる
 
-    printlog("define file : " + os.path.basename(defpath))
+    logger.info("define file : " + os.path.basename(defpath))
 
     datadir = None
     macrodir = None
@@ -153,7 +152,3 @@ def ask_open_filename(filetypes=None, title=None, initialdir=None, initialfile=N
     tk.destroy()
 
     return Path(path).absolute()
-
-
-if __name__ == "__main__":
-    print(input_num("input>"))

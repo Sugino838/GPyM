@@ -8,12 +8,12 @@ from pathlib import Path
 import win32api
 import win32con
 
-import measurementManager as mm
+import measurement_manager as mm
 import variables as vars
 from define import read_deffile
 from inputModule import ask_open_filename
-from macro import get_macro, get_macro_bunkatsu, get_macropath
-from utilityModule import set_user_log, setlog
+from log import set_user_log, setlog
+from macro import get_macro, get_macro_split, get_macropath
 
 logger = getLogger(__name__)
 
@@ -49,7 +49,7 @@ def main():
 
     on_forced_termination(lambda: mm.finish())
     # 測定開始
-    mm.start(macro)
+    mm.start_macro(macro)
 
 
 def on_forced_termination(func):
