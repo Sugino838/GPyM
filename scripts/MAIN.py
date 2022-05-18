@@ -13,7 +13,7 @@ import variables as vars
 from define import read_deffile
 from inputModule import ask_open_filename
 from log import set_user_log, setlog
-from macro import get_macro, get_macro_bunkatsu, get_macropath
+from macro import get_macro, get_macro_split, get_macropath
 
 logger = getLogger(__name__)
 

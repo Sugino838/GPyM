@@ -3,11 +3,17 @@ import os
 import sys
 import time
 import tkinter.filedialog as tkfd
+from logging import getLogger
 from tkinter import Tk
 
 import utility as util
+from utility import MyException
 
-__logger = util.mklogger(__name__)
+logger = getLogger(__name__)
+
+
+class SplitException(MyException):
+    pass
 
 
 def heating_cooling_split(
@@ -59,7 +65,7 @@ def heating_cooling_split(
     count = 0
     for i in range(sample_num):
         if count >= len(data) - step:
-            __logger.warning(
+            logger.warning(
                 "データ数が少なすぎるかsample数が多すぎます. 必要最小データ数は"
                 + sys._getframe().f_code.co_name
                 + "の引数から設定できます"
@@ -234,7 +240,7 @@ def file_open(filepath):
     print("非データ行 : ", num_label, ", データ行 : ", num_data)
 
     if num_data == 0:
-        raise util.create_error("データ行が0行です. 読み取りに失敗しました.", __logger)
+        raise SplitException("データ行が0行です. 読み取りに失敗しました.")
 
     return data, filename, dirpath, label
 
@@ -273,11 +279,10 @@ def create_file(filepath, data, label=""):
     dirpath = os.path.dirname(filepath)
     os.makedirs(dirpath, exist_ok=True)
     if os.path.isfile(filepath):
-        raise util.create_error(
+        raise SplitException(
             "新規作成しようとしたファイル"
             + filepath
-            + "は既に存在しています.削除してからやり直してください.\n解決できない場合はcyclic_splitの分割数などを見直してみてください",
-            __logger,
+            + "は既に存在しています.削除してからやり直してください.\n解決できない場合はcyclic_splitの分割数などを見直してみてください"
         )
 
     with open(filepath, "x", encoding="utf-8") as f:
@@ -286,6 +291,21 @@ def create_file(filepath, data, label=""):
 
 
 def TMR_bunkatsu(
+    filepath,
+    T_index,
+    f_index,
+    freq_num=16,
+    sample_and_cutout_num=(150, 120),
+    step=10,
+    threshold=0,
+):
+    logger.warning("TMR_bunkatsuは非推奨です。TMR_splitを使用してください。")
+    TMR_split(
+        filepath, T_index, f_index, freq_num, sample_and_cutout_num, step, threshold
+    )
+
+
+def TMR_split(
     filepath,
     T_index,
     f_index,
@@ -370,16 +390,3 @@ def TMR_bunkatsu(
         count += 1
 
     print("file has been completely bunkatsued!!")
-
-
-def main():
-    tk = Tk()
-    print("select bunkatsu file...")
-    inputPath = tkfd.askopenfilename()  # ファイルダイアログでファイルを取得
-    tk.destroy()
-
-    bunkatsu(inputPath)
-
-
-if __name__ == "__main__":
-    main()

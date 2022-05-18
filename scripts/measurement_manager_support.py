@@ -8,24 +8,29 @@ from logging import getLogger
 from mimetypes import init
 from typing import Optional, Union
 
+from click import command
+
 import utility as util
 import variables as vars
-from log import create_error, inputlog
+from utility import MyException
 
-__logger = getLogger(__name__)
+logger = getLogger(__name__)
 
 
 class MeasurementStep(Flag):
     READY = auto()
     START = auto()
     UPDATE = auto()
+    FINISH_MEASURE = auto()
     END = auto()
     AFTER = auto()
+
+    AFTER_MEASUREMENT_ALL_STEPS = FINISH_MEASURE | END | AFTER
+    MEASURING = UPDATE
 
 
 class MeasurementState:
     current_step: MeasurementStep = MeasurementStep.READY
-    is_measuring: bool = False
 
 
 class FileManager:  # ファイルの管理
@@ -44,6 +49,9 @@ class FileManager:  # ファイルの管理
 
     """
 
+    class FileException(MyException):
+        pass
+
     _filepath: str
     _filename: str
     _file = None
@@ -60,9 +68,7 @@ class FileManager:  # ファイルの管理
 
     @filename.setter
     def filename(self, new_filename):
-        if self.has_fileNG_word(new_filename):
-            inputlog("Error : 以下の文字列はファイル名に使えません. 入力し直してください")
-            raise Exception("Error : 以下の文字列はファイル名に使えません. 入力し直してください")
+        self.check_has_fileNG_word(new_filename)
         self._filename = self.get_date_text() + "_" + new_filename
 
     def __init__(self) -> None:
@@ -94,7 +100,8 @@ class FileManager:  # ファイルの管理
         """
 
         if not os.path.isdir(vars.DATADIR):  # フォルダの存在確認
-            raise create_error(vars.DATADIR + "のフォルダにアクセスしようとしましたが､存在しませんでした", __logger)
+            logger.exception("")
+            raise self.FileException(vars.DATADIR + "のフォルダにアクセスしようとしましたが､存在しませんでした")
 
         if do_make_folder:
             nowdatadir = vars.DATADIR + "\\" + self._filename
@@ -104,6 +111,8 @@ class FileManager:  # ファイルの管理
             self._filepath = vars.DATADIR + "\\" + self._filename + ".txt"
 
         self._file = open(self._filepath, "x", encoding="utf-8")  # ファイル作成
+
+        logger.info(f"filename:{self.filename}")
 
         if self.__prewrite != "":
             self._file.write(self.__prewrite)  # 今までに書き込んだ分を入力
@@ -130,12 +139,13 @@ class FileManager:  # ファイルの管理
             self._file.write(text)
             self._file.flush()
 
-    def has_fileNG_word(self, text: str) -> bool:
+    def check_has_fileNG_word(self, text: str) -> bool:
         ngwords = ["\\", "/", "?", '"', "<", ">", "|", ":", "*"]  # ファイルに使えない文字
         for ng in ngwords:
             if ng in text:
-                return True
-        return False
+                raise self.FileException(
+                    f"以下の文字列はファイル名に使えません. 入力し直してください \n{' '.join(ngwords)} "
+                )
 
     def close(self):
         self._file.close()
@@ -174,13 +184,19 @@ class CommandReceiver:  # コマンドの入力を受け取るクラス
 
     def __command_receive_thread(self) -> None:  # 終了コマンドの入力待ち, これは別スレッドで動かす
         while True:
-            if (
-                msvcrt.kbhit() and not self.__measurement_state.is_measuring
+            if msvcrt.kbhit() and (
+                self.__measurement_state.current_step & MeasurementStep.MEASURING
             ):  # 入力が入って初めてinputが動くように(inputが動くとその間ループを抜けられないので)
-                self.__command = inputlog()
-                while self.__command is not None:
-                    time.sleep(0.1)
-            elif self.__measurement_state.is_measuring:
+                command = input()
+                if command != "":
+                    self.__command = command
+                    logger.info(f"command:{self.__command}")
+                    while self.__command is not None:
+                        time.sleep(0.1)
+            elif bool(
+                self.__measurement_state.current_step
+                & MeasurementStep.AFTER_MEASUREMENT_ALL_STEPS
+            ):
                 break
             time.sleep(0.1)
 
@@ -218,6 +234,9 @@ class PlotAgency:
         plot.pyを実行しているプロセス
 
     """
+
+    class PlotAgentException(MyException):
+        pass
 
     share_list: List[tuple]
     __isfinish: Value
@@ -280,34 +299,32 @@ class PlotAgency:
         """
 
         if type(line) is not bool:
-            raise create_error(
-                sys._getframe().f_code.co_name + ": lineの値はTrueかFalseです", __logger
+            raise self.PlotAgentException(
+                sys._getframe().f_code.co_name + ": lineの値はTrueかFalseです"
             )
         if type(xlog) is not bool or type(ylog) is not bool:
-            raise create_error(
-                sys._getframe().f_code.co_name + ": xlog,ylogの値はTrueかFalseです", __logger
+            raise self.PlotAgentException(
+                sys._getframe().f_code.co_name + ": xlog,ylogの値はTrueかFalseです"
             )
         if type(legend) is not bool:
-            raise create_error(
-                sys._getframe().f_code.co_name + ": legendの値はTrueかFalseです", __logger
+            raise self.PlotAgentException(
+                sys._getframe().f_code.co_name + ": legendの値はTrueかFalseです"
             )
         if type(flowwidth) is not float and type(flowwidth) is not int:
-            raise create_error(
-                sys._getframe().f_code.co_name + ": flowwidthの型はintかfloatです", __logger
+            raise self.PlotAgentException(
+                sys._getframe().f_code.co_name + ": flowwidthの型はintかfloatです"
             )
         if flowwidth < 0:
-            raise create_error(
-                sys._getframe().f_code.co_name + ": flowwidthの値は0以上にする必要があります", __logger
+            raise self.PlotAgentException(
+                sys._getframe().f_code.co_name + ": flowwidthの値は0以上にする必要があります"
             )
         if type(renew_interval) is not float and type(renew_interval) is not int:
-            raise create_error(
-                sys._getframe().f_code.co_name + ": renew_intervalの型はintかfloatです",
-                __logger,
+            raise self.PlotAgentException(
+                sys._getframe().f_code.co_name + ": renew_intervalの型はintかfloatです"
             )
         if renew_interval < 0:
-            raise create_error(
-                sys._getframe().f_code.co_name + ": renew_intervalの型は0以上にする必要があります",
-                __logger,
+            raise self.PlotAgentException(
+                sys._getframe().f_code.co_name + ": renew_intervalの型は0以上にする必要があります"
             )
 
         self.plot_info = {

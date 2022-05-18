@@ -6,13 +6,13 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 import variables as vars
-from utility import GPyMException
+from utility import MyException
 
-__logger = getLogger(__name__)
+logger = getLogger(__name__)
 
 
 def log(text: str):
-    __logger.info(text)
+    logger.info(text)
 
 
 def setlog():
@@ -43,44 +43,3 @@ def set_user_log(path: str):
     handler.setLevel(INFO)
     handler.setFormatter(fmt)
     getLogger().addHandler(handler)
-
-
-# TODO (sakakibara): 将来的に消す
-# ロガーの作成
-def mklogger(logname: str):
-    return getLogger(logname)
-
-
-# TODO (sakakibara): 将来的に消す
-def create_error(msg: str, logger: Logger, e=None):
-    if e is not None:
-        logger.exception(e)
-    else:
-        logger.error(msg, stacklevel=2)
-
-    input()
-
-    # エラーが既に発生している場合は何も返さないことで現在発生しているエラーをログに出せる
-    if e is not None:
-        return
-    else:
-        return GPyMException(msg)
-
-
-# TODO (sakakibara): 将来的に消す
-def printlog(msg: str, isprint=True):
-    if isprint:
-        print(msg)
-    logging.info(msg)
-
-
-# TODO (sakakibara): 将来的に消す
-def inputlog(ask=""):
-    ans = input(ask)
-    logging.info(f"{ask}: {ans}")
-    return ans
-
-
-# TODO (sakakibara): 将来的に消す
-def output_ErrorLog(_errorlogpath, e: Exception):
-    logging.exception(e)

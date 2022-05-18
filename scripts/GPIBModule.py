@@ -1,10 +1,15 @@
 import time
+from logging import getLogger
 
 import pyvisa
 
-import utility as util
+from utility import MyException
 
-logger = util.mklogger(__name__)
+logger = getLogger(__name__)
+
+
+class GPIBException(MyException):
+    pass
 
 
 def get_instrument(address):
@@ -33,19 +38,23 @@ def get_instrument(address):
         # 機器にアクセス. GPIBがつながってないとここでエラーが出る
         inst = rm.open_resource(address)
     except pyvisa.errors.VisaIOError as e:  # エラーが出たらここを実行
-        raise util.create_error("GPIBケーブルが抜けている可能性があります", logger)
+        logger.exception("")
+        raise GPIBException("GPIBケーブルが抜けている可能性があります")
     except Exception as e:  # エラーの種類に応じて場合分け
-        raise util.create_error("予期せぬエラーが発生しました", logger, e)
+        logger.exception("")
+        raise GPIBException("予期せぬエラーが発生しました")
 
     try:
         # IDNコマンドで機器と通信. GPIB番号に機器がないとここでエラー
         idn = inst.query("*IDN?")
     except pyvisa.errors.VisaIOError as e:
-        raise util.create_error(
-            address + "が'IDN?'コマンドに応答しません. 設定されているGPIBの番号が間違っている可能性があります", logger, e
+        logger.exception("")
+        raise GPIBException(
+            address + "が'IDN?'コマンドに応答しません. 設定されているGPIBの番号が間違っている可能性があります"
         )
     except Exception as e:
-        raise util.create_error("予期せぬエラーが発生しました", logger, e)
+        logger.exception("")
+        raise GPIBException("予期せぬエラーが発生しました")
 
     # 問題が無ければinstを返す
     return inst
@@ -56,7 +65,7 @@ def command_check(inst, *commands):
         try:
             text = inst.query(command)
         except Exception as e:
-            raise util.create_error(
+            raise GPIBException(
                 "GPIB"
                 + str(inst.primary_address)
                 + "番への'"

@@ -35,5 +35,5 @@ def get_encode_type(path: str) -> str:
     return encode_type
 
 
-class GPyMException(Exception):
+class MyException(Exception):
     pass

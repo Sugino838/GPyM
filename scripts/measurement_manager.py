@@ -19,7 +19,6 @@ import calibration as calib
 import inputModule as inp
 import utility as util
 import variables as vars
-from log import inputlog, printlog
 from measurement_manager_support import (
     CommandReceiver,
     FileManager,
@@ -27,7 +26,7 @@ from measurement_manager_support import (
     MeasurementStep,
     PlotAgency,
 )
-from utility import GPyMException
+from utility import 
 
 """
 基本的にアンダーバー(_)が先頭についている関数､変数は外部からアクセスすることを想定していません. どうしてもという場合にだけアクセスしてください
@@ -36,7 +35,7 @@ from utility import GPyMException
 """
 
 
-__logger = getLogger(__name__)
+logger = getLogger(__name__)
 
 
 def start_macro(macro):
@@ -46,7 +45,7 @@ def start_macro(macro):
 
 
 def finish():
-    _measurement_manager.state.is_measuring = False
+    _measurement_manager.is_measuring = False
 
 
 def set_file_name(filename):
@@ -77,7 +76,7 @@ def calibration(x):
 
 def set_label(label):
     if _measurement_manager.state.current_step != MeasurementStep.START:
-        __logger.warning(sys._getframe().f_code.co_name + "はstart関数内で用いてください")
+        logger.warning(sys._getframe().f_code.co_name + "はstart関数内で用いてください")
     _measurement_manager.file_manager.write(label)
 
 
@@ -112,11 +111,8 @@ def set_plot_info(
 
     """
 
-    if (
-        _measurement_manager.state.current_step != MeasurementStep.READY
-        and _measurement_manager.state.current_step != MeasurementStep.START
-    ):
-        __logger.warning(sys._getframe().f_code.co_name + "はstart関数内で用いてください")
+    if _measurement_manager.state.current_step != MeasurementStep.START:
+        logger.warning(sys._getframe().f_code.co_name + "はstart関数内で用いてください")
     _measurement_manager.plot_agency.set_plot_info(
         line=line,
         xlog=xlog,
@@ -141,15 +137,22 @@ def save_data(*data):  # データ保存
         書き込むデータ
 
     """
-    if (
-        _measurement_manager.state.current_step != MeasurementStep.UPDATE
-        and _measurement_manager.state.current_step != MeasurementStep.END
+    if not bool(
+        _measurement_manager.state.current_step
+        & (MeasurementStep.UPDATE | MeasurementStep.END)
     ):
-        __logger.warning(sys._getframe().f_code.co_name + "はupdateもしくはend関数内で用いてください")
+        logger.warning(sys._getframe().f_code.co_name + "はupdateもしくはend関数内で用いてください")
     _measurement_manager.file_manager.save(*data)
 
 
+plot_data_flag = False
+
+
 def plot_data(x, y, label="default"):  # データをグラフにプロット
+    global plot_data_flag
+    if not plot_data_flag:
+        logger.warning("plot_dataは非推奨です。plotを使ってください")
+        plot_data_flag = True
     plot(x, y, label)
 
 
@@ -173,15 +176,15 @@ def plot(x, y, label="default"):
     """
 
     if _measurement_manager.state.current_step != MeasurementStep.UPDATE:
-        __logger.warning(sys._getframe().f_code.co_name + "はstartもしくはupdate関数内で用いてください")
+        logger.warning(sys._getframe().f_code.co_name + "はstartもしくはupdate関数内で用いてください")
 
-    if _measurement_manager.state.is_measuring:
+    if _measurement_manager.is_measuring:
         _measurement_manager.plot_agency.plot(x, y, label)
 
 
 def no_plot():
     if _measurement_manager.state.current_step != MeasurementStep.START:
-        __logger.warning(sys._getframe().f_code.co_name + "はstart関数内で用いてください")
+        logger.warning(sys._getframe().f_code.co_name + "はstart関数内で用いてください")
     _measurement_manager.plot_agency.not_run_plot_window()
 
 
@@ -191,6 +194,7 @@ class MeasurementManager:
     plot_agency = None
     command_receiver = None
     state = MeasurementState()
+    is_measuring = False
 
     def __init__(self, macro) -> None:
         self.macro = macro
@@ -216,7 +220,7 @@ class MeasurementManager:
             self.macro.start()
 
         self.file_manager.create_file(
-            do_make_folder=(self.macro.bunkatsu is not None),
+            do_make_folder=(self.macro.split is not None),
         )  # ファイル作成
 
         self.plot_agency.run_plot_window()  # グラフウィンドウの立ち上げ
@@ -227,37 +231,41 @@ class MeasurementManager:
         if self.macro.on_command is not None:
             self.command_receiver.initialize()
 
-        printlog("measuring start...")
+        print("measuring start...")
         self.state.current_step = MeasurementStep.UPDATE
 
-        self.state.is_measuring = True
+        self.is_measuring = True
         while True:  # 測定終了までupdateを回す
-            if not self.state.is_measuring:
+            if not self.is_measuring:
                 break
             command = self.command_receiver.get_command()
             if command is None:
                 flag = self.macro.update()
                 if flag == False:
-                    self.state.is_measuring = False
+                    self.is_measuring = False
             else:
                 self.macro.on_command(command)  # コマンドが入っていればコマンドを呼ぶ
 
             if self.plot_agency.is_plot_window_forced_terminated():
-                self.state.is_measuring = False
+                self.is_measuring = False
 
+        self.state.current_step = MeasurementStep.FINISH_MEASURE
         self.plot_agency.stop_renew_plot_window()
 
-        printlog("measurement has finished...")
+        while msvcrt.kbhit():  # 既に入っている入力は消す
+            msvcrt.getwch()
+
+        print("measurement has finished...")
 
         if self.macro.end is not None:
             self.state.current_step = MeasurementStep.END
             self.macro.end()
 
-        self.file_manager.close()
+        self.file_manager.close()  # ファイルはend関数の後で閉じる
 
         self.state.current_step = MeasurementStep.AFTER
-        if self.macro.bunkatsu is not None:
-            self.macro.bunkatsu(self.file_manager.filepath)
+        if self.macro.split is not None:
+            self.macro.split(self.file_manager.filepath)
 
         if self.macro.after is not None:
             self.macro.after(self.file_manager.filepath)
@@ -271,7 +279,7 @@ class MeasurementManager:
 
         def wait_enter():  # コンソール側の終了
             nonlocal endflag, windowclose  # nonlocalを使うとクロージャーになる
-            inputlog("enter and close window...")  # エンターを押したら次へ進める
+            input("enter and close window...")  # エンターを押したら次へ進める
             endflag = True
             windowclose = True
 

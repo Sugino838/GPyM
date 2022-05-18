@@ -4,18 +4,21 @@
   "formatters": {
     "default": {
       "format": "[%(asctime)s] [%(levelname)8s] [%(filename)s:%(lineno)s %(funcName)s]  %(message)s"
+    },
+    "console": {
+      "format": "[%(levelname)s] %(message)s"
     }
   },
   "handlers": {
     "consoleHandler": {
       "class": "logging.StreamHandler",
-      "level": "WARNING",
-      "formatter": "default",
+      "level": "INFO",
+      "formatter": "console",
       "stream": "ext://sys.stdout"
     },
     "sharedFileHandler": {
       "class": "logging.FileHandler",
-      "level": "WARNING",
+      "level": "INFO",
       "formatter": "default",
       "filename": "",
       "encoding": "utf-8"

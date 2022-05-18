@@ -4,7 +4,7 @@ from pathlib import Path
 
 import variables as vars
 from inputModule import ask_open_filename
-from utility import GPyMException, get_encode_type
+from utility import MyException, get_encode_type
 
 logger = getLogger(__name__)
 
@@ -61,20 +61,20 @@ def read_deffile():
 
     # 最後まで見てDATADIRが無ければエラー表示
     if datadir == None:
-        raise GPyMException("定義ファイルにDATADIRの定義がありません")
+        raise MyException("定義ファイルにDATADIRの定義がありません")
     # 相対パスなら定義ファイルからの絶対パスに変換
     if not datadir.is_absolute():
         datadir = path_deffile.parent / datadir
     # データフォルダが存在しなければエラー
     if not datadir.is_dir():
-        raise GPyMException(f"{datadir}は定義ファイルに設定されていますが存在しません")
+        raise MyException(f"{datadir}は定義ファイルに設定されていますが存在しません")
 
     if tempdir == None:
-        raise GPyMException("定義ファイルにTMPDIRの定義がありません")
+        raise MyException("定義ファイルにTMPDIRの定義がありません")
     if not tempdir.is_absolute():
         tempdir = path_deffile.parent / tempdir
     if not tempdir.is_dir():
-        raise GPyMException(f"{tempdir}は定義ファイルに設定されていますが存在しません")
+        raise MyException(f"{tempdir}は定義ファイルに設定されていますが存在しません")
 
     if macrodir == None:
         logger.warning("you can set MACRODIR in your define file")

@@ -5,12 +5,12 @@ from pathlib import Path
 
 import variables as vars
 from inputModule import ask_open_filename
-from utility import GPyMException
+from utility import MyException
 
 logger = getLogger(__name__)
 
 
-class MacroError(GPyMException):
+class MacroError(MyException):
     pass
 
 
@@ -78,11 +78,15 @@ def get_macro(macropath: Path):
         logger.error(target.__name__ + ".on_commandには引数を設定してはいけません")
         UNDIFINE_ERROR = True
 
-    if not hasattr(target, "bunkatsu"):
-        target.bunkatsu = None
-        UNDIFINE_WARNING.append("bunkatsu")
-    elif target.bunkatsu.__code__.co_argcount != 1:
-        logger.error(target.__name__ + ".bunkatsuには引数filepathだけを設定しなければいけません")
+    if not hasattr(target, "split"):
+        if hasattr(target, "bunkatsu"):
+            target.split = target.bunkatsu
+            logger.warning("bunkatsu 関数は非推奨です。splitという名前に変えてください")
+        else:
+            target.split = None
+            UNDIFINE_WARNING.append("split")
+    elif target.split.__code__.co_argcount != 1:
+        logger.error(target.__name__ + ".splitには引数filepathだけを設定しなければいけません")
         UNDIFINE_ERROR = True
 
     if not hasattr(target, "after"):
@@ -101,15 +105,15 @@ def get_macro(macropath: Path):
     return target
 
 
-def get_macro_bunkatsu(macroPath: Path):
+def get_macro_split(macroPath: Path):
     macroname = macroPath.stem
     spec = spec_from_loader(macroname, SourceFileLoader(macroname, str(macroPath)))
     target = module_from_spec(spec)
     spec.loader.exec_module(target)
 
-    if not hasattr(target, "bunkatsu"):
-        raise MacroError(f"{target.__name__}.pyにはbunkatsu関数を定義する必要があります")
-    elif target.bunkatsu.__code__.co_argcount != 1:
-        raise MacroError(f"{target.__name__}.bunkatsuには1つの引数が必要です")
+    if not hasattr(target, "split"):
+        raise MacroError(f"{target.__name__}.pyにはsplit関数を定義する必要があります")
+    elif target.split.__code__.co_argcount != 1:
+        raise MacroError(f"{target.__name__}.splitには1つの引数が必要です")
 
     return target
