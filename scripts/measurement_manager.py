@@ -28,6 +28,7 @@ def start_macro(macro):
 
 def finish():
     """測定を終了させる"""
+    logger.debug("finish is called")
     _measurement_manager.is_measuring = False
 
 
@@ -203,7 +204,7 @@ class MeasurementManager:
         ここでそれぞれの関数を適切なタイミングで呼んでいる
 
         """
-
+        logger.debug("measurement start")
         self.state.current_step = MeasurementStep.READY
 
         while msvcrt.kbhit():  # 既に入っている入力は消す
@@ -236,12 +237,14 @@ class MeasurementManager:
             command = self.command_receiver.get_command()
             if command is None:
                 flag = self.macro.update()
-                if not flag:
+                if (flag is not None) and not flag:
+                    logger.debug("return False from update function")
                     self.is_measuring = False
             else:
                 self.macro.on_command(command)  # コマンドが入っていればコマンドを呼ぶ
 
             if self.plot_agency.is_plot_window_forced_terminated():
+                logger.debug("measurement has finished because plot window closed")
                 self.is_measuring = False
 
         self.state.current_step = MeasurementStep.FINISH_MEASURE

@@ -1,10 +1,12 @@
+"""キャリブレーションに使う関数"""
 import os
 from logging import getLogger
+from pathlib import Path
 
 from scipy import interpolate
 
-import variables
 from utility import MyException, get_encode_type
+from variables import SHARED_VARIABLES
 
 logger = getLogger(__name__)
 
@@ -35,27 +37,30 @@ class TMRCalibrationManager:
     interpolate_func = None
 
     def set_shared_calib_file(self):
-        path = variables.SHARED_SETTINGSDIR + "/calibration_file"
-        if not os.path.isdir(path):
-            os.mkdir(path)
+        """キャリブレーションファイルを共有フォルダから取得してインスタンスにセット"""
+        path = SHARED_VARIABLES.SETTINGDIR / "calibration_file"
+        if not path.is_dir():
+            path.mkdir()
         import glob
 
-        files = glob.glob(path + "/*")
+        files = glob.glob(str(path) + "/*")
 
         files = list(
             filter(lambda f: os.path.split(f)[1][0] != "_")
         )  # 名前の先頭にアンダーバーがあるものは排除
 
         if len(files) == 0:
-            raise CalibrationError(path + "内には1つのキャリブレーションファイルを置く必要があります")
+            raise CalibrationError(str(path) + "内には1つのキャリブレーションファイルを置く必要があります")
         if len(files) >= 2:
             raise CalibrationError(
-                path + "内に2つ以上のキャリブレーションファイルを置いてはいけません。古いファイルの戦闘にはアンダーバー'_'をつけてください"
+                str(path)
+                + "内に2つ以上のキャリブレーションファイルを置いてはいけません。古いファイルの戦闘にはアンダーバー'_'をつけてください"
             )
         filepath_calib = files[0]
         self.__set(filepath_calib)
 
     def set_own_calib_file(self, filepath_calib: str):
+        """自分で指定したキャリブレーションファイルをインスタンスにセット"""
         if not os.path.isfile(filepath_calib):
             raise CalibrationError(
                 "キャリブレーションファイル"
@@ -68,7 +73,7 @@ class TMRCalibrationManager:
             )
         self.__set(filepath_calib)
 
-    def __set(self, filepath_calib=None):  # プラチナ温度計の抵抗値を温度に変換するためのファイルを読み込み
+    def __set(self, filepath_calib: Path):  # プラチナ温度計の抵抗値を温度に変換するためのファイルを読み込み
         """
         キャリブレーションファイルの2列目をx,1列目をyとして線形補間関数を作る.
 
@@ -81,39 +86,19 @@ class TMRCalibrationManager:
 
         """
 
-        if filepath_calib is not None:
-            if not os.path.isfile(filepath_calib):
-                raise CalibrationError(
-                    "キャリブレーションファイル"
-                    + filepath_calib
-                    + "が存在しません. "
-                    + os.getcwd()
-                    + "で'"
-                    + filepath_calib
-                    + "'にアクセスしようとしましたが存在しませんでした."
-                )
-        else:
-            path = variables.SHARED_SETTINGSDIR + "/calibration_file"
-            if not os.path.isdir(path):
-                os.mkdir(path)
-            import glob
+        if not filepath_calib.is_file():
+            raise CalibrationError(
+                "キャリブレーションファイル"
+                + str(filepath_calib)
+                + "が存在しません. "
+                + os.getcwd()
+                + "で'"
+                + str(filepath_calib)
+                + "'にアクセスしようとしましたが存在しませんでした."
+            )
 
-            files = glob.glob(path + "/*")
-
-            files = list(
-                filter(lambda f: os.path.split(f)[1][0] != "_")
-            )  # 名前の戦闘にアンダーバーがあるものは排除
-
-            if len(files) == 0:
-                raise CalibrationError(path + "内には1つのキャリブレーションファイルを置く必要があります")
-            if len(files) >= 2:
-                raise CalibrationError(
-                    path + "内に2つ以上のキャリブレーションファイルを置いてはいけません。古いファイルの戦闘にはアンダーバー'_'をつけてください"
-                )
-            filepath_calib = files[0]
-
-        with open(
-            filepath_calib, "r", encoding=get_encode_type(filepath_calib)
+        with filepath_calib.open(
+            mode="r", encoding=get_encode_type(filepath_calib)
         ) as file:
 
             x = []
@@ -136,8 +121,8 @@ class TMRCalibrationManager:
                 except Exception:
                     pass
 
-        self.calib_file_name = os.path.split(filepath_calib)[1]
-        logger.info("calibration : %s", filepath_calib)
+        self.calib_file_name = filepath_calib.parts[1]
+        logger.info("calibration : %s", str(filepath_calib))
 
         self.interpolate_func = interpolate.interp1d(
             x, y, fill_value="extrapolate"

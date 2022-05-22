@@ -14,6 +14,7 @@ from define import read_deffile
 from log import set_user_log, setlog
 from macro import get_macro, get_macro_split, get_macropath
 from utility import MyException, ask_open_filename
+from variables import USER_VARIABLES
 
 logger = getLogger(__name__)
 
@@ -39,7 +40,7 @@ def main():
     read_deffile()
 
     # ユーザー側にlogファイル表示
-    set_user_log(variables.TEMPDIR)
+    set_user_log(USER_VARIABLES.TEMPDIR)
 
     # マクロファイルのパスを取得
     macropath, _, macrodir = get_macropath()

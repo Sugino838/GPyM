@@ -5,7 +5,7 @@ from logging import INFO, Formatter, config, getLogger
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
-import variables
+from variables import SHARED_VARIABLES
 
 logger = getLogger(__name__)
 
@@ -17,8 +17,9 @@ def log(text: str):
 
 def setlog():
     """ログファイルのセット"""
-    with open(
-        f"{variables.SHARED_SCRIPTSDIR}/log_config.json", "r", encoding="utf-8"
+
+    with (SHARED_VARIABLES.GPYM_SCRIPTSDIR / "log_config.json").open(
+        mode="r", encoding="utf-8"
     ) as f:
         conf = json.load(f)
 
@@ -26,7 +27,7 @@ def setlog():
 
         # 月ごとに新しいファイルにログを書き出す
         conf["handlers"]["sharedFileHandler"]["filename"] = str(
-            variables.SHARED_LOGDIR / f"{now.year}-{now.month}.log"
+            SHARED_VARIABLES.LOGDIR / f"{now.year}-{now.month}.log"
         )
 
         config.dictConfig(conf)
