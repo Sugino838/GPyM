@@ -4,8 +4,6 @@ measurement_managerモジュールで利用するクラスの詰め合わせ
 
 import datetime
 import msvcrt
-import os
-import sys
 import threading
 import time
 from enum import Flag, auto
@@ -14,8 +12,8 @@ from multiprocessing import Lock, Manager, Process, Value
 from typing import List, Optional
 
 import plot
-import variables
 from utility import MyException
+from variables import USER_VARIABLES
 
 logger = getLogger(__name__)
 
@@ -93,10 +91,10 @@ class FileManager:  # ファイルの管理
         ファイル名を設定する際に使えない文字がないが入っていないか判定
         """
         self.check_has_file_ng_word(new_filename)
-        self._filename = self.get_date_text() + "_" + new_filename
+        self._filename = self.get_date_text() + "_" + new_filename + ".txt"
 
     def __init__(self) -> None:
-        self._filename = self.get_date_text() + "_"
+        self.filename = ""
 
     def get_date_text(self) -> str:
         """
@@ -125,17 +123,19 @@ class FileManager:  # ファイルの管理
         フォルダが無ければエラーを出し､あれば新規でファイルを作り､__savefileに代入
         """
 
-        if not os.path.isdir(variables.DATADIR):  # フォルダの存在確認
-            raise self.FileError(variables.DATADIR + "のフォルダにアクセスしようとしましたが､存在しませんでした")
+        if not USER_VARIABLES.DATADIR.is_dir():  # フォルダの存在確認
+            raise self.FileError(
+                str(USER_VARIABLES.DATADIR) + "のフォルダにアクセスしようとしましたが､存在しませんでした"
+            )
 
         if do_make_folder:
-            nowdatadir = variables.DATADIR + "\\" + self._filename
-            os.mkdir(nowdatadir)
-            self._filepath = nowdatadir + "\\" + self._filename + ".txt"
+            nowdatadir = USER_VARIABLES.DATADIR / self._filename.replace(".txt", "")
+            nowdatadir.mkdir()
+            self._filepath = nowdatadir / self._filename
         else:
-            self._filepath = variables.DATADIR + "\\" + self._filename + ".txt"
+            self._filepath = USER_VARIABLES.DATADIR / self._filename
 
-        self._file = open(self._filepath, "x", encoding="utf-8")  # ファイル作成
+        self._file = self._filepath.open(mode="x", encoding="utf-8")  # ファイル作成
 
         logger.info("filename:%s", self.filename)
 

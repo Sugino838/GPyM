@@ -1,8 +1,8 @@
 from logging import getLogger
 from pathlib import Path
 
-import variables
 from utility import MyException, ask_open_filename, get_encode_type
+from variables import SHARED_VARIABLES, USER_VARIABLES
 
 logger = getLogger(__name__)
 
@@ -14,7 +14,7 @@ class DefineFileError(MyException):
 def get_deffile():
     """定義ファイルの取得"""
     # 前回の定義ファルのパスが保存されているファイル
-    path_deffilepath = variables.SHARED_TEMPDIR / "deffilepath"
+    path_deffilepath = SHARED_VARIABLES.TEMPDIR / "deffilepath"
     path_deffilepath.touch()
 
     # 前回の定義ファイルのフォルダを開いて定義ファイル選択画面へ
@@ -89,6 +89,6 @@ def read_deffile():
             macrodir = None
 
     # TODO (sakakibara): Use pathlib
-    variables.DATADIR = str(datadir)
-    variables.TEMPDIR = str(tempdir)
-    variables.MACRODIR = str(macrodir)
+    USER_VARIABLES.DATADIR = datadir
+    USER_VARIABLES.TEMPDIR = tempdir
+    USER_VARIABLES.MACRODIR = macrodir

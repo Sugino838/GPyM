@@ -6,8 +6,8 @@ from importlib.util import module_from_spec, spec_from_loader
 from logging import getLogger
 from pathlib import Path
 
-import variables
 from utility import MyException, ask_open_filename
+from variables import SHARED_VARIABLES, USER_VARIABLES
 
 logger = getLogger(__name__)
 
@@ -18,7 +18,7 @@ class MacroError(MyException):
 
 def get_macropath():
     """前回のマクロ名が保存されたファイルのパス"""
-    path_premacroname = variables.SHARED_TEMPDIR / "premacroname"
+    path_premacroname = SHARED_VARIABLES.TEMPDIR / "premacroname"
     path_premacroname.touch()
 
     premacroname = path_premacroname.read_text(encoding="utf-8")
@@ -27,7 +27,7 @@ def get_macropath():
     macropath = ask_open_filename(
         filetypes=[("pythonファイル", "*.py *.gpym")],
         title="マクロを選択してください",
-        initialdir=variables.MACRODIR,
+        initialdir=str(USER_VARIABLES.MACRODIR),
         initialfile=premacroname,
     )
 
