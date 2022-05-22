@@ -3,14 +3,14 @@ from logging import getLogger
 
 from scipy import interpolate
 
-import variables as vars
+import variables
 from utility import MyException, get_encode_type
 
 logger = getLogger(__name__)
 
 
-class CalibrationException(MyException):
-    pass
+class CalibrationError(MyException):
+    """キャリブレーション関連のエラー"""
 
 
 class TMRCalibrationManager:
@@ -35,7 +35,7 @@ class TMRCalibrationManager:
     interpolate_func = None
 
     def set_shared_calib_file(self):
-        path = vars.SHARED_SETTINGSDIR + "/calibration_file"
+        path = variables.SHARED_SETTINGSDIR + "/calibration_file"
         if not os.path.isdir(path):
             os.mkdir(path)
         import glob
@@ -47,9 +47,9 @@ class TMRCalibrationManager:
         )  # 名前の先頭にアンダーバーがあるものは排除
 
         if len(files) == 0:
-            raise CalibrationException(path + "内には1つのキャリブレーションファイルを置く必要があります")
+            raise CalibrationError(path + "内には1つのキャリブレーションファイルを置く必要があります")
         if len(files) >= 2:
-            raise CalibrationException(
+            raise CalibrationError(
                 path + "内に2つ以上のキャリブレーションファイルを置いてはいけません。古いファイルの戦闘にはアンダーバー'_'をつけてください"
             )
         filepath_calib = files[0]
@@ -57,7 +57,7 @@ class TMRCalibrationManager:
 
     def set_own_calib_file(self, filepath_calib: str):
         if not os.path.isfile(filepath_calib):
-            raise CalibrationException(
+            raise CalibrationError(
                 "キャリブレーションファイル"
                 + filepath_calib
                 + "が存在しません. "
@@ -83,7 +83,7 @@ class TMRCalibrationManager:
 
         if filepath_calib is not None:
             if not os.path.isfile(filepath_calib):
-                raise CalibrationException(
+                raise CalibrationError(
                     "キャリブレーションファイル"
                     + filepath_calib
                     + "が存在しません. "
@@ -93,7 +93,7 @@ class TMRCalibrationManager:
                     + "'にアクセスしようとしましたが存在しませんでした."
                 )
         else:
-            path = vars.SHARED_SETTINGSDIR + "/calibration_file"
+            path = variables.SHARED_SETTINGSDIR + "/calibration_file"
             if not os.path.isdir(path):
                 os.mkdir(path)
             import glob
@@ -105,9 +105,9 @@ class TMRCalibrationManager:
             )  # 名前の戦闘にアンダーバーがあるものは排除
 
             if len(files) == 0:
-                raise CalibrationException(path + "内には1つのキャリブレーションファイルを置く必要があります")
+                raise CalibrationError(path + "内には1つのキャリブレーションファイルを置く必要があります")
             if len(files) >= 2:
-                raise CalibrationException(
+                raise CalibrationError(
                     path + "内に2つ以上のキャリブレーションファイルを置いてはいけません。古いファイルの戦闘にはアンダーバー'_'をつけてください"
                 )
             filepath_calib = files[0]
@@ -137,7 +137,7 @@ class TMRCalibrationManager:
                     pass
 
         self.calib_file_name = os.path.split(filepath_calib)[1]
-        logger.info("calibration : " + filepath_calib)
+        logger.info("calibration : %s", filepath_calib)
 
         self.interpolate_func = interpolate.interp1d(
             x, y, fill_value="extrapolate"
@@ -150,14 +150,11 @@ class TMRCalibrationManager:
         try:
             y = self.interpolate_func(x)
         except ValueError as e:
-            logger.exception("")
-            raise CalibrationException(
+            raise CalibrationError(
                 "入力されたデータ " + str(x) + " がキャリブレーションファイルのデータ範囲外になっている可能性があります"
-            )
+            ) from e
         except NameError as e:
-            logger.exception("")
-            raise CalibrationException("キャリブレーションファイルが読み込まれていない可能性があります")
+            raise CalibrationError("キャリブレーションファイルが読み込まれていない可能性があります") from e
         except Exception as e:
-            logger.exception("")
-            raise CalibrationException("予期せぬエラーが発生しました")
+            raise CalibrationError("予期せぬエラーが発生しました") from e
         return y

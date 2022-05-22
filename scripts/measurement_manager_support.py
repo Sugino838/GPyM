@@ -1,3 +1,8 @@
+"""
+measurement_managerモジュールで利用するクラスの詰め合わせ
+"""
+
+import datetime
 import msvcrt
 import os
 import sys
@@ -5,19 +10,21 @@ import threading
 import time
 from enum import Flag, auto
 from logging import getLogger
-from mimetypes import init
-from typing import Optional, Union
+from multiprocessing import Lock, Manager, Process, Value
+from typing import List, Optional
 
-from click import command
-
-import utility as util
-import variables as vars
+import plot
+import variables
 from utility import MyException
 
 logger = getLogger(__name__)
 
 
 class MeasurementStep(Flag):
+    """
+    測定ステップ
+    """
+
     READY = auto()
     START = auto()
     UPDATE = auto()
@@ -30,6 +37,16 @@ class MeasurementStep(Flag):
 
 
 class MeasurementState:
+    """
+    測定の状態を詰める
+
+    Attributes
+    -----------
+    current_step: MeasurementStep
+        現在のステップ
+
+    """
+
     current_step: MeasurementStep = MeasurementStep.READY
 
 
@@ -46,11 +63,13 @@ class FileManager:  # ファイルの管理
         ファイル名
     file
         ファイルのインスタンス
+    delimiter:str
+        区切り文字
 
     """
 
-    class FileException(MyException):
-        pass
+    class FileError(MyException):
+        """ファイル関連のエラー"""
 
     _filepath: str
     _filename: str
@@ -60,22 +79,29 @@ class FileManager:  # ファイルの管理
 
     @property
     def filepath(self):
+        """ファイルのパス"""
         return self._filepath
 
     @property
     def filename(self):
+        """ファイルの名前"""
         return self._filename
 
     @filename.setter
     def filename(self, new_filename):
-        self.check_has_fileNG_word(new_filename)
+        """
+        ファイル名を設定する際に使えない文字がないが入っていないか判定
+        """
+        self.check_has_file_ng_word(new_filename)
         self._filename = self.get_date_text() + "_" + new_filename
 
     def __init__(self) -> None:
         self._filename = self.get_date_text() + "_"
 
     def get_date_text(self) -> str:
-        import datetime
+        """
+        今日の日時を返す
+        """
 
         dt_now = datetime.datetime.now()  # 日時取得
 
@@ -99,20 +125,19 @@ class FileManager:  # ファイルの管理
         フォルダが無ければエラーを出し､あれば新規でファイルを作り､__savefileに代入
         """
 
-        if not os.path.isdir(vars.DATADIR):  # フォルダの存在確認
-            logger.exception("")
-            raise self.FileException(vars.DATADIR + "のフォルダにアクセスしようとしましたが､存在しませんでした")
+        if not os.path.isdir(variables.DATADIR):  # フォルダの存在確認
+            raise self.FileError(variables.DATADIR + "のフォルダにアクセスしようとしましたが､存在しませんでした")
 
         if do_make_folder:
-            nowdatadir = vars.DATADIR + "\\" + self._filename
+            nowdatadir = variables.DATADIR + "\\" + self._filename
             os.mkdir(nowdatadir)
             self._filepath = nowdatadir + "\\" + self._filename + ".txt"
         else:
-            self._filepath = vars.DATADIR + "\\" + self._filename + ".txt"
+            self._filepath = variables.DATADIR + "\\" + self._filename + ".txt"
 
         self._file = open(self._filepath, "x", encoding="utf-8")  # ファイル作成
 
-        logger.info(f"filename:{self.filename}")
+        logger.info("filename:%s", self.filename)
 
         if self.__prewrite != "":
             self._file.write(self.__prewrite)  # 今までに書き込んだ分を入力
@@ -120,6 +145,7 @@ class FileManager:  # ファイルの管理
             self.__prewrite = ""
 
     def save(self, *args):
+        """データ保存"""
 
         text = ""
 
@@ -133,21 +159,29 @@ class FileManager:  # ファイルの管理
         self.write(text)
 
     def write(self, text: str):
-        if self._file == None:
+        """
+        ファイルへの書き込み
+        ファイルがまだ作成されていなければ別の場所に一次保存
+        """
+        if self._file is None:
             self.__prewrite += text
         else:
             self._file.write(text)
             self._file.flush()
 
-    def check_has_fileNG_word(self, text: str) -> bool:
+    def check_has_file_ng_word(self, text: str) -> bool:
+        """
+        ファイルに使えない文字がないか確認
+        """
         ngwords = ["\\", "/", "?", '"', "<", ">", "|", ":", "*"]  # ファイルに使えない文字
         for ng in ngwords:
             if ng in text:
-                raise self.FileException(
+                raise self.FileError(
                     f"以下の文字列はファイル名に使えません. 入力し直してください \n{' '.join(ngwords)} "
                 )
 
     def close(self):
+        """ファイルを閉じる"""
         self._file.close()
 
 
@@ -190,7 +224,7 @@ class CommandReceiver:  # コマンドの入力を受け取るクラス
                 command = input()
                 if command != "":
                     self.__command = command
-                    logger.info(f"command:{self.__command}")
+                    logger.info("command:%s", self.__command)
                     while self.__command is not None:
                         time.sleep(0.1)
             elif bool(
@@ -200,16 +234,11 @@ class CommandReceiver:  # コマンドの入力を受け取るクラス
                 break
             time.sleep(0.1)
 
-    def get_command(self) -> str:  # 受け取ったコマンドを返す. なければNoneを返す
+    def get_command(self) -> str:
+        """受け取ったコマンドを返す. なければNoneを返す"""
         command = self.__command
         self.__command = None
         return command
-
-
-from multiprocessing import Lock, Manager, Process, Value
-from typing import List
-
-import plot
 
 
 class PlotAgency:
@@ -235,8 +264,8 @@ class PlotAgency:
 
     """
 
-    class PlotAgentException(MyException):
-        pass
+    class PlotAgentError(MyException):
+        """プロット仲介クラス関連の例外クラス"""
 
     share_list: List[tuple]
     __isfinish: Value
@@ -259,7 +288,7 @@ class PlotAgency:
         self.process_lock = Lock()  # 2つのプロセスで同時に同じデータを触らないようにする排他制御のキー
         # グラフ表示は別プロセスで実行する
         self.plot_process = Process(
-            target=plot.exec,
+            target=plot.start_plot_window,
             args=(self.share_list, self.__isfinish, self.process_lock, self.plot_info),
         )
         self.plot_process.daemon = True  # プロセスのデーモン化
@@ -299,32 +328,26 @@ class PlotAgency:
         """
 
         if type(line) is not bool:
-            raise self.PlotAgentException(
-                sys._getframe().f_code.co_name + ": lineの値はTrueかFalseです"
-            )
+            raise self.PlotAgentError("set_plot_infoの引数に問題があります : lineの値はboolです")
         if type(xlog) is not bool or type(ylog) is not bool:
-            raise self.PlotAgentException(
-                sys._getframe().f_code.co_name + ": xlog,ylogの値はTrueかFalseです"
-            )
+            raise self.PlotAgentError("set_plot_infoの引数に問題があります : xlog,ylogの値はboolです")
         if type(legend) is not bool:
-            raise self.PlotAgentException(
-                sys._getframe().f_code.co_name + ": legendの値はTrueかFalseです"
-            )
+            raise self.PlotAgentError("set_plot_infoの引数に問題があります : legendの値はboolです")
         if type(flowwidth) is not float and type(flowwidth) is not int:
-            raise self.PlotAgentException(
-                sys._getframe().f_code.co_name + ": flowwidthの型はintかfloatです"
+            raise self.PlotAgentError(
+                "set_plot_infoの引数に問題があります : flowwidthの型はintかfloatです"
             )
         if flowwidth < 0:
-            raise self.PlotAgentException(
-                sys._getframe().f_code.co_name + ": flowwidthの値は0以上にする必要があります"
+            raise self.PlotAgentError(
+                "set_plot_infoの引数に問題があります : flowwidthの値は0以上にする必要があります"
             )
         if type(renew_interval) is not float and type(renew_interval) is not int:
-            raise self.PlotAgentException(
-                sys._getframe().f_code.co_name + ": renew_intervalの型はintかfloatです"
+            raise self.PlotAgentError(
+                "set_plot_infoの引数に問題があります : renew_intervalの型はintかfloatです"
             )
         if renew_interval < 0:
-            raise self.PlotAgentException(
-                sys._getframe().f_code.co_name + ": renew_intervalの型は0以上にする必要があります"
+            raise self.PlotAgentError(
+                "set_plot_infoの引数に問題があります : renew_intervalの型は0以上にする必要があります"
             )
 
         self.plot_info = {
@@ -362,15 +385,15 @@ class PlotAgency:
             self.process_lock.release()  # ロック解除
 
     def stop_renew_plot_window(self):
+        """プロットウィンドウの更新を停止"""
         self.__isfinish.value = 1
 
     def close(self):
+        """プロットウィンドウを閉じる"""
         self.plot_process.terminate()
 
     def is_plot_window_alive(self) -> bool:
-        """
-        self.plot_processが生きているかどうかを判定
-        """
+        """self.plot_processが生きているかどうかを判定"""
 
         return self.plot_process.is_alive()
 
@@ -381,25 +404,32 @@ class PlotAgency:
         """
         return not self.plot_process.is_alive()
 
-    def not_run_plot_window(self):
-
+    class NoPlotAgency:
         """
-        グラフを表示しないモード
+        プロット無効状態のときにmeasurement.manager.plot_agencyにこのインスタンスを入れる
         """
 
-        def void(*args):
-            pass
+        def __init__(self) -> None:
+            """
+            グラフを表示しないモード
+            """
 
-        def void_constant(value):
             def void(*args):
-                return value
+                """何も返さない関数"""
 
-            return void
+            def void_constant(value):
+                """定数を返す関数を返す関数"""
 
-        self.run_plot_window = void
-        self.set_plot_info = void
-        self.plot = void
-        self.stop_renew_plot_window = void
-        self.close = void
-        self.is_plot_window_alive = void_constant(False)
-        self.is_plot_window_forced_terminated = void_constant(False)
+                def void(*args):
+                    """定数を返す関数"""
+                    return value
+
+                return void
+
+            self.run_plot_window = void
+            self.set_plot_info = void
+            self.plot = void
+            self.stop_renew_plot_window = void
+            self.close = void
+            self.is_plot_window_alive = void_constant(False)
+            self.is_plot_window_forced_terminated = void_constant(False)

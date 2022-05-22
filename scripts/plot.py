@@ -1,19 +1,11 @@
-import copy
-import msvcrt
-import sys
-import threading
-import time
-from multiprocessing import Lock, Manager, Process
-
-import matplotlib.pyplot as plt
-import numpy as np
-
 """
     プロットの処理と終了入力待ちは測定と別プロセスで行って非同期にする
     (データ数が増えてプロットに時間がかかっても測定に影響が出ないようにする)
 
 """
+import time
 
+import matplotlib.pyplot as plt
 
 colormap = (
     "black",
@@ -41,7 +33,10 @@ colormap = (
 )
 
 
-def exec(share_list, isfinish, lock, plot_info):  # 別プロセスで最初に実行される場所
+def start_plot_window(share_list, isfinish, lock, plot_info):
+    """
+    別プロセスで最初に実行される場所
+    """
 
     PlotWindow(share_list, isfinish, lock, **plot_info).run()  # インスタンス作成, 実行
 
@@ -111,7 +106,10 @@ class PlotWindow:
         if ylog:
             plt.yscale("log")  # 縦軸をlogスケールに
 
-    def run(self):  # 実行
+    def run(self):
+        """
+        プロットの処理をループで回す
+        """
         interval = self.interval
         while True:  # 一定時間ごとに更新
             self.renew_window()
@@ -129,7 +127,10 @@ class PlotWindow:
     min_x = None
     min_y = None
 
-    def renew_window(self):  # グラフの更新
+    def renew_window(self):
+        """
+        プロッタ画面の更新で呼ぶ関数
+        """
         self.lock.acquire()  # 共有リストにロックをかける
         # share_listのコピーを作成.(temp=share_listにすると参照になってしまうのでdel self.share_list[:]でtempも消えてしまう)
         temp = self.share_list[:]  # [i for i in self.share_list]はかなり重い
@@ -139,15 +140,15 @@ class PlotWindow:
         xrelim = False  # for文が1回も回らないことがあるのでここで宣言しておく
         yrelim = False
 
-        for i in range(len(temp)):  # tempの中身をプロット
-            x, y, label = temp[i]
+        for plotdata in temp:  # tempの中身をプロット
+            x_val, y_val, label = plotdata
 
-            if label not in self.linedict.keys():  # 最初の一回だけは辞書に登録する
-                xarray = [x]
-                yaaray = [y]
+            if label not in self.linedict:  # 最初の一回だけは辞書に登録する
+                xarray = [x_val]
+                yaaray = [y_val]
                 color = colormap[(self._count_label) % len(colormap)]
                 self._count_label += 1
-                (ln,) = self._ax.plot(
+                (line,) = self._ax.plot(
                     xarray,
                     yaaray,
                     marker=".",
@@ -155,7 +156,7 @@ class PlotWindow:
                     label=label,
                     linestyle=self.linestyle,
                 )  # プロット
-                lineobj = self.LineObj(ln, xarray, yaaray)  # 辞書に追加
+                lineobj = self.LineObj(line, xarray, yaaray)  # 辞書に追加
                 self.linedict[label] = lineobj
 
                 if self.legend:
@@ -181,33 +182,33 @@ class PlotWindow:
 
             else:  # 2回目以降は色をキーにして辞書からLineObjをとってくる
                 lineobj = self.linedict[label]
-                lineobj.xarray.append(x)
-                lineobj.yaaray.append(y)
-                lineobj.ln.set_data(lineobj.xarray, lineobj.yaaray)
+                lineobj.xarray.append(x_val)
+                lineobj.yaaray.append(y_val)
+                lineobj.line.set_data(lineobj.xarray, lineobj.yaaray)
 
             # 今までの範囲の外にプロットしたときは範囲を更新
             if self.max_x is None:
-                self.max_x = x
-            elif self.max_x < x:
-                self.max_x = x
+                self.max_x = x_val
+            elif self.max_x < x_val:
+                self.max_x = x_val
                 xrelim = True
 
             if self.max_y is None:
-                self.max_y = y
-            elif self.max_y < y:
-                self.max_y = y
+                self.max_y = y_val
+            elif self.max_y < y_val:
+                self.max_y = y_val
                 yrelim = True
 
             if self.min_x is None:
-                self.min_x = x
-            elif self.min_x > x:
-                self.min_x = x
+                self.min_x = x_val
+            elif self.min_x > x_val:
+                self.min_x = x_val
                 xrelim = True
 
             if self.min_y is None:
-                self.min_y = y
-            elif self.min_y > y:
-                self.min_y = y
+                self.min_y = y_val
+            elif self.min_y > y_val:
+                self.min_y = y_val
                 yrelim = True
 
         if xrelim or yrelim:
@@ -224,23 +225,27 @@ class PlotWindow:
                 self._ax.set_ylim(self.min_y, self.max_y)
 
                 # 範囲外のプロットは消す
-                for l in self.linedict.values():
-                    xarray = l.xarray
-                    yaaray = l.yaaray
+                for line_obj in self.linedict.values():
+                    xarray = line_obj.xarray
+                    yaaray = line_obj.yaaray
                     cut = 0
-                    for i in range(len(xarray)):
-                        if xarray[i] < xmin:
+                    for (i, xvalue) in enumerate(xarray):
+                        if xvalue < xmin:
                             continue
                         else:
                             cut = max(i - 1, 0)
                             break
-                    l.xarray = xarray[cut:]
-                    l.yaaray = yaaray[cut:]
+                    line_obj.xarray = xarray[cut:]
+                    line_obj.yaaray = yaaray[cut:]
 
         self._figure.canvas.flush_events()  # グラフを再描画するおまじない
 
     class LineObj:
-        def __init__(self, ln, xarray, yaaray):
-            self.ln = ln
+        """
+        matplotlibでプロットしたグラフの線1つにつきこれが1つ作られる
+        """
+
+        def __init__(self, line, xarray, yaaray):
+            self.line = line
             self.xarray = xarray
             self.yaaray = yaaray

@@ -1,15 +1,13 @@
-import json
-from ast import For
-from datetime import datetime
+"""その他諸々の便利関数"""
+import tkinter.filedialog as tkfd
 from pathlib import Path
+from tkinter import Tk
 
 from chardet.universaldetector import UniversalDetector
 
-import variables as vars
 
-
-# テキストファイルの文字コードを判別する. ほぼコピペ
 def get_encode_type(path: str) -> str:
+    """テキストファイルの文字コードを判別する. ほぼコピペ"""
     detector = UniversalDetector()
     with open(path, mode="rb") as f:
         for binary in f:
@@ -35,5 +33,27 @@ def get_encode_type(path: str) -> str:
     return encode_type
 
 
+def ask_open_filename(filetypes=None, title=None, initialdir=None, initialfile=None):
+    """ファイル選択ダイアログをつくってファイルを返す関数"""
+    tk = Tk()
+
+    # ファイルダイアログでファイルを取得
+    path = tkfd.askopenfilename(
+        filetypes=filetypes,
+        title=title,
+        initialdir=initialdir,
+        initialfile=initialfile,
+    )
+
+    # これとtk=Tk()がないと謎のウィンドウが残って邪魔になる
+    tk.destroy()
+
+    return Path(path).absolute()
+
+
 class MyException(Exception):
-    pass
+    """測定システムのエラーの親クラス"""
+
+    def __init__(self, message=""):
+        super().__init__()
+        self.message = message

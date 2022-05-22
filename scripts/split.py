@@ -1,10 +1,10 @@
+"""
+分割処理に使える関数がある
+"""
 import math
 import os
 import sys
-import time
-import tkinter.filedialog as tkfd
 from logging import getLogger
-from tkinter import Tk
 
 import utility as util
 from utility import MyException
@@ -12,8 +12,8 @@ from utility import MyException
 logger = getLogger(__name__)
 
 
-class SplitException(MyException):
-    pass
+class SplitError(MyException):
+    """分割処理関係のエラー"""
 
 
 def heating_cooling_split(
@@ -49,7 +49,7 @@ def heating_cooling_split(
     """
 
     if step == 0:
-        setp = 1
+        step = 1
 
     sample_num = sample_and_cutout_num[0]
     cutout_num = sample_and_cutout_num[1]
@@ -240,7 +240,7 @@ def file_open(filepath):
     print("非データ行 : ", num_label, ", データ行 : ", num_data)
 
     if num_data == 0:
-        raise SplitException("データ行が0行です. 読み取りに失敗しました.")
+        raise SplitError("データ行が0行です. 読み取りに失敗しました.")
 
     return data, filename, dirpath, label
 
@@ -264,22 +264,22 @@ def create_file(filepath, data, label=""):
 
     """
 
-    def array2D_to_text(array2D):
+    def array2d_to_text(array2d):
         text = ""
-        for array1D in array2D:
-            t = ""
-            for element in array1D:
-                t += str(element) + ","
-            t = t[:-1]
-            t += "\n"
-            text += t
+        for array1d in array2d:
+            temp = ""
+            for element in array1d:
+                temp += str(element) + ","
+            temp = temp[:-1]
+            temp += "\n"
+            text += temp
 
         return text
 
     dirpath = os.path.dirname(filepath)
     os.makedirs(dirpath, exist_ok=True)
     if os.path.isfile(filepath):
-        raise SplitException(
+        raise SplitError(
             "新規作成しようとしたファイル"
             + filepath
             + "は既に存在しています.削除してからやり直してください.\n解決できない場合はcyclic_splitの分割数などを見直してみてください"
@@ -287,7 +287,7 @@ def create_file(filepath, data, label=""):
 
     with open(filepath, "x", encoding="utf-8") as f:
         f.write(label)
-        f.write(array2D_to_text(data))
+        f.write(array2d_to_text(data))
 
 
 def TMR_bunkatsu(
