@@ -10,4 +10,4 @@ set /p __=
 exit /b
 )
 echo on
-python scripts\MAIN.py BUNKATSU
+python scripts\MAIN.py SPLIT

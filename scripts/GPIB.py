@@ -1,4 +1,3 @@
-import time
 from logging import getLogger
 
 import pyvisa
@@ -8,8 +7,8 @@ from utility import MyException
 logger = getLogger(__name__)
 
 
-class GPIBException(MyException):
-    pass
+class GPIBError(MyException):
+    """GPIB関係のえらー"""
 
 
 def get_instrument(address):
@@ -32,45 +31,33 @@ def get_instrument(address):
 
     if type(address) is int:
         address = f"GPIB0::{address}::INSTR"
+    elif type(address) is not str:
+        raise GPIBError("get_instrumentの引数はintかstrでなければなりません")
 
-    rm = pyvisa.ResourceManager()
+    try:
+        resource_manager = pyvisa.ResourceManager()
+    except ValueError as e:
+        raise GPIBError("VISAがPCにインストールされていない可能性があります。 NIVISAをインストールしてください") from e
+    except Exception as e:  # エラーの種類に応じて場合分け
+        raise GPIBError("予期せぬエラーが発生しました") from e
+
     try:
         # 機器にアクセス. GPIBがつながってないとここでエラーが出る
-        inst = rm.open_resource(address)
+        inst = resource_manager.open_resource(address)
     except pyvisa.errors.VisaIOError as e:  # エラーが出たらここを実行
-        logger.exception("")
-        raise GPIBException("GPIBケーブルが抜けている可能性があります")
+        raise GPIBError("GPIBケーブルが抜けている可能性があります") from e
     except Exception as e:  # エラーの種類に応じて場合分け
-        logger.exception("")
-        raise GPIBException("予期せぬエラーが発生しました")
+        raise GPIBError("予期せぬエラーが発生しました") from e
 
     try:
         # IDNコマンドで機器と通信. GPIB番号に機器がないとここでエラー
-        idn = inst.query("*IDN?")
+        inst.query("*IDN?")
     except pyvisa.errors.VisaIOError as e:
-        logger.exception("")
-        raise GPIBException(
+        raise GPIBError(
             address + "が'IDN?'コマンドに応答しません. 設定されているGPIBの番号が間違っている可能性があります"
-        )
+        ) from e
     except Exception as e:
-        logger.exception("")
-        raise GPIBException("予期せぬエラーが発生しました")
+        raise GPIBError("予期せぬエラーが発生しました") from e
 
     # 問題が無ければinstを返す
     return inst
-
-
-def command_check(inst, *commands):
-    for command in commands:
-        try:
-            text = inst.query(command)
-        except Exception as e:
-            raise GPIBException(
-                "GPIB"
-                + str(inst.primary_address)
-                + "番への'"
-                + command
-                + "'のコマンドでエラーが発生しました",
-                logger,
-                e,
-            )

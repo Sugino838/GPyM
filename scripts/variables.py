@@ -1,3 +1,4 @@
+"""共有度の高い変数を置いておく"""
 from pathlib import Path
 
 TEMPDIR = None  # ユーザーTEMPフォルダーのパス
@@ -9,7 +10,9 @@ SHARED_SCRIPTSDIR = None
 SHARED_SETTINGSDIR = None
 SHARED_TEMPDIR = None
 
+
 def init(home: Path):
+    """変数の初期化"""
     global GPYM_HOMEDIR, SHARED_LOGDIR, SHARED_SCRIPTSDIR, SHARED_TEMPDIR, SHARED_SETTINGSDIR
     # GPyMフォルダーのパス
     GPYM_HOMEDIR = home

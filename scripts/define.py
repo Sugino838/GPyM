@@ -1,17 +1,20 @@
-import os
 from logging import getLogger
 from pathlib import Path
 
-import variables as vars
-from inputModule import ask_open_filename
-from utility import MyException, get_encode_type
+import variables
+from utility import MyException, ask_open_filename, get_encode_type
 
 logger = getLogger(__name__)
 
 
+class DefineFileError(MyException):
+    """定義ファイル関係のエラー"""
+
+
 def get_deffile():
+    """定義ファイルの取得"""
     # 前回の定義ファルのパスが保存されているファイル
-    path_deffilepath = vars.SHARED_TEMPDIR / "deffilepath"
+    path_deffilepath = variables.SHARED_TEMPDIR / "deffilepath"
     path_deffilepath.touch()
 
     # 前回の定義ファイルのフォルダを開いて定義ファイル選択画面へ
@@ -40,7 +43,7 @@ def get_deffile():
 def read_deffile():
     """定義ファイルを読み込んで各フォルダのパスを取得"""
     path_deffile = get_deffile()
-    logger.info(f"define file: {path_deffile.stem}")
+    logger.info("define file:%s", path_deffile.stem)
 
     datadir = None
     macrodir = None
@@ -60,32 +63,32 @@ def read_deffile():
                 macrodir = Path(l[9:])
 
     # 最後まで見てDATADIRが無ければエラー表示
-    if datadir == None:
-        raise MyException("定義ファイルにDATADIRの定義がありません")
+    if datadir is None:
+        raise DefineFileError("定義ファイルにDATADIRの定義がありません")
     # 相対パスなら定義ファイルからの絶対パスに変換
     if not datadir.is_absolute():
         datadir = path_deffile.parent / datadir
     # データフォルダが存在しなければエラー
     if not datadir.is_dir():
-        raise MyException(f"{datadir}は定義ファイルに設定されていますが存在しません")
+        raise DefineFileError(f"{datadir}は定義ファイルに設定されていますが存在しません")
 
-    if tempdir == None:
-        raise MyException("定義ファイルにTMPDIRの定義がありません")
+    if tempdir is None:
+        raise DefineFileError("定義ファイルにTMPDIRの定義がありません")
     if not tempdir.is_absolute():
         tempdir = path_deffile.parent / tempdir
     if not tempdir.is_dir():
-        raise MyException(f"{tempdir}は定義ファイルに設定されていますが存在しません")
+        raise DefineFileError(f"{tempdir}は定義ファイルに設定されていますが存在しません")
 
-    if macrodir == None:
+    if macrodir is None:
         logger.warning("you can set MACRODIR in your define file")
     else:
         if not macrodir.is_absolute():
             macrodir = path_deffile.parent / macrodir
         if not macrodir.is_dir():
-            logger.warning(f"{macrodir}は定義ファイルに設定されていますが存在しません")
+            logger.warning("%sは定義ファイルに設定されていますが存在しません", macrodir)
             macrodir = None
 
     # TODO (sakakibara): Use pathlib
-    vars.DATADIR = str(datadir)
-    vars.TEMPDIR = str(tempdir)
-    vars.MACRODIR = str(macrodir)
+    variables.DATADIR = str(datadir)
+    variables.TEMPDIR = str(tempdir)
+    variables.MACRODIR = str(macrodir)

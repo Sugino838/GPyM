@@ -1,22 +1,24 @@
+"""
+マクロの読み込みなど
+"""
 from importlib.machinery import SourceFileLoader
 from importlib.util import module_from_spec, spec_from_loader
 from logging import getLogger
 from pathlib import Path
 
-import variables as vars
-from inputModule import ask_open_filename
-from utility import MyException
+import variables
+from utility import MyException, ask_open_filename
 
 logger = getLogger(__name__)
 
 
 class MacroError(MyException):
-    pass
+    """マクロ関連のエラー"""
 
 
 def get_macropath():
-    # 前回のマクロ名が保存されたファイルのパス
-    path_premacroname = vars.SHARED_TEMPDIR / "premacroname"
+    """前回のマクロ名が保存されたファイルのパス"""
+    path_premacroname = variables.SHARED_TEMPDIR / "premacroname"
     path_premacroname.touch()
 
     premacroname = path_premacroname.read_text(encoding="utf-8")
@@ -25,7 +27,7 @@ def get_macropath():
     macropath = ask_open_filename(
         filetypes=[("pythonファイル", "*.py *.gpym")],
         title="マクロを選択してください",
-        initialdir=vars.MACRODIR,
+        initialdir=variables.MACRODIR,
         initialfile=premacroname,
     )
 
@@ -33,7 +35,7 @@ def get_macropath():
     macroname = macropath.stem
 
     path_premacroname.write_text(macropath.name, encoding="utf-8")
-    logger.info(f"macro: {macropath.name}")
+    logger.info("macro: %s", macropath.name)
 
     return macropath, macroname, macrodir
 
@@ -78,13 +80,13 @@ def get_macro(macropath: Path):
         logger.error(target.__name__ + ".on_commandには引数を設定してはいけません")
         UNDIFINE_ERROR = True
 
+    if hasattr(target, "bunkatsu"):
+        target.split = target.bunkatsu
+        logger.warning("bunkatsu 関数は非推奨です。splitという名前に変えてください")
+
     if not hasattr(target, "split"):
-        if hasattr(target, "bunkatsu"):
-            target.split = target.bunkatsu
-            logger.warning("bunkatsu 関数は非推奨です。splitという名前に変えてください")
-        else:
-            target.split = None
-            UNDIFINE_WARNING.append("split")
+        target.split = None
+        UNDIFINE_WARNING.append("split")
     elif target.split.__code__.co_argcount != 1:
         logger.error(target.__name__ + ".splitには引数filepathだけを設定しなければいけません")
         UNDIFINE_ERROR = True
@@ -97,7 +99,7 @@ def get_macro(macropath: Path):
         UNDIFINE_ERROR = True
 
     if len(UNDIFINE_WARNING) > 0:
-        logger.info("UNDEFINED FUNCTION: " + ", ".join(UNDIFINE_WARNING))
+        logger.info("UNDEFINED FUNCTION: %s", ", ".join(UNDIFINE_WARNING))
 
     if UNDIFINE_ERROR:
         raise MacroError("macroの関数定義が正しくありません")
@@ -106,10 +108,15 @@ def get_macro(macropath: Path):
 
 
 def get_macro_split(macroPath: Path):
+    """マクロファイルを分割マクロに変換"""
     macroname = macroPath.stem
     spec = spec_from_loader(macroname, SourceFileLoader(macroname, str(macroPath)))
     target = module_from_spec(spec)
     spec.loader.exec_module(target)
+
+    if hasattr(target, "bunkatsu"):
+        target.split = target.bunkatsu
+        logger.warning("bunkatsu 関数は非推奨です。splitという名前に変えてください")
 
     if not hasattr(target, "split"):
         raise MacroError(f"{target.__name__}.pyにはsplit関数を定義する必要があります")

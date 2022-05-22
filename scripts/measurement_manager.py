@@ -1,24 +1,13 @@
-import math
+"""
+マクロを動かしたり、マクロと他のコードの橋渡しになったり
+"""
 import msvcrt
-import os
 import sys
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
-from ctypes import Union
 from logging import getLogger
-from multiprocessing import Lock, Manager, Process, Value
-from typing import Any, Optional, Union
-
-import matplotlib.pyplot as plt
-import pyperclip
-from chardet.universaldetector import UniversalDetector
-from scipy import interpolate
 
 import calibration as calib
-import inputModule as inp
-import utility as util
-import variables as vars
 from measurement_manager_support import (
     CommandReceiver,
     FileManager,
@@ -26,29 +15,24 @@ from measurement_manager_support import (
     MeasurementStep,
     PlotAgency,
 )
-from utility import 
-
-"""
-基本的にアンダーバー(_)が先頭についている関数､変数は外部からアクセスすることを想定していません. どうしてもという場合にだけアクセスしてください
-
-アンダーバー2つ(__)が先頭についている関数､変数ははマンダリングされており､アンダーバー1つのもの以上に外部からアクセスしにくくしています(やろうとすればできる)
-"""
-
 
 logger = getLogger(__name__)
 
 
 def start_macro(macro):
+    """measurement_manager起動"""
     global _measurement_manager
     _measurement_manager = MeasurementManager(macro)
     _measurement_manager.measure_start()
 
 
 def finish():
+    """測定を終了させる"""
     _measurement_manager.is_measuring = False
 
 
 def set_file_name(filename):
+    """ファイル名をセット"""
     _measurement_manager.file_manager.filename = filename
 
 
@@ -59,7 +43,7 @@ def set_calibration(filepath_calib=None):
     """
     global calibration_manager
     calibration_manager = calib.TMRCalibrationManager()
-    if filepath_calib == None:
+    if filepath_calib is None:
         calibration_manager.set_shared_calib_file()
     else:
         calibration_manager.set_own_calib_file(filepath_calib)
@@ -70,17 +54,18 @@ def calibration(x):
     この関数は非推奨です。calibration.pyを作ったのでそちらをから呼んでください
     プラチナ温度計の抵抗値xに対応する温度yを線形補間で返す
     """
-    global calibration_manager
     return calibration_manager.calibration(x)
 
 
 def set_label(label):
+    """ラベルをファイルに書き込み"""
     if _measurement_manager.state.current_step != MeasurementStep.START:
         logger.warning(sys._getframe().f_code.co_name + "はstart関数内で用いてください")
     _measurement_manager.file_manager.write(label)
 
 
 def write_file(text: str):
+    """ファイルに書き込み"""
     _measurement_manager.file_manager.write(text)
 
 
@@ -123,7 +108,13 @@ def set_plot_info(
     )
 
 
-def save_data(*data):  # データ保存
+def save_data(*data):
+    """データのセーブ"""
+    logger.warning("関数save_dataは非推奨です。 saveを使ってください")
+    save(*data)
+
+
+def save(*data):  # データ保存
     """
     引数のデータをファイルに書き込む.
     この関数が呼ばれるごとに書き込みの反映( __savefile.flush)をおこなっているので途中で測定が落ちてもそれまでのデータは残るようになっている.
@@ -183,12 +174,16 @@ def plot(x, y, label="default"):
 
 
 def no_plot():
+    """プロット画面を出さないときに呼ぶ"""
     if _measurement_manager.state.current_step != MeasurementStep.START:
         logger.warning(sys._getframe().f_code.co_name + "はstart関数内で用いてください")
-    _measurement_manager.plot_agency.not_run_plot_window()
+    _measurement_manager.plot_agency = PlotAgency.NoPlotAgency()
 
 
 class MeasurementManager:
+    """
+    測定の管理、マクロの各関数の呼び出し
+    """
 
     file_manager = None
     plot_agency = None
@@ -241,7 +236,7 @@ class MeasurementManager:
             command = self.command_receiver.get_command()
             if command is None:
                 flag = self.macro.update()
-                if flag == False:
+                if not flag:
                     self.is_measuring = False
             else:
                 self.macro.on_command(command)  # コマンドが入っていればコマンドを呼ぶ
