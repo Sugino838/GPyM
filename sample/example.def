@@ -1,0 +1,3 @@
+TMPDIR=temp
+DATADIR=data
+MACRODIR=macro

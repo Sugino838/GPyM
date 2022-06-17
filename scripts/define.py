@@ -1,3 +1,4 @@
+"""定義ファイルの取得や読み込みなど"""
 from logging import getLogger
 from pathlib import Path
 
