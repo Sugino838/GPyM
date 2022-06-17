@@ -7,6 +7,7 @@ import time
 
 import matplotlib.pyplot as plt
 
+# 色の配列
 colormap = (
     "black",
     "red",

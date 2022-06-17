@@ -3,49 +3,21 @@ from pathlib import Path
 
 from utility import MyException
 
-## TEMPDIR = None  # ユーザーTEMPフォルダーのパス
-## DATADIR = None  # ユーザーDATAフォルダーのパス
-## MACRODIR = None  # ユーザーMACROフォルダーのパス
-## GPYM_HOMEDIR = None
-## SHARED_LOGDIR = None
-## SHARED_SCRIPTSDIR = None
-## SHARED_SETTINGSDIR = None
-## SHARED_TEMPDIR = None
-
-
-def init(home: Path):
-    """変数の初期化"""
-    # GPyMフォルダーのパス
-
-    SHARED_VARIABLES.set_GPYM_HOMEDIR(home)
-
-    # 共有TEMPフォルダーのパス
-    tempdir = home / "temp"
-    if not tempdir.is_dir():
-        tempdir.mkdir()
-    SHARED_VARIABLES.set_TEMPDIR(tempdir)
-
-    # 共有設定フォルダのパス
-    settingdir = home / "shared_settings"
-    if not settingdir.is_dir():
-        settingdir.mkdir()
-    SHARED_VARIABLES.set_SETTINGDIR(settingdir)
-
-    # scriptsフォルダーのパス
-    SHARED_VARIABLES.set_GPYM_SCRIPTSDIR(home / "scripts")
-
-    # logフォルダーのパス
-    logdir = home / "log"
-    if not logdir.is_dir():
-        logdir.mkdir()
-    SHARED_VARIABLES.set_LOGDIR(logdir)
-
 
 class VariablesError(MyException):
     """変数関係のエラー"""
 
 
 class PathObject:
+    """
+    Pathインスタンスの型チェックとNoneチェックを担当
+
+    Property
+    ------------
+    value : Path
+        格納するPathインスタンス
+    """
+
     __value = None
 
     @property
@@ -57,12 +29,25 @@ class PathObject:
     @value.setter
     def value(self, value: Path):
         if not isinstance(value, Path):
-            raise ValueError("Pathクラスのインスタンスを入力してください")
+            raise ValueError("Pathクラスのインスタンスを代入してください")
         self.__value = value
 
 
 class USER_VARIABLES:
-    """各ユーザーがそれぞれ個別に持つ変数"""
+    """
+    各ユーザーがそれぞれ個別に持つ変数
+    各プロパティに対応するセッターが存在する
+
+    Property
+    ----------
+    TEMPDIR:Path
+        一時フォルダのパス
+    DATADIR:Path
+        データ保存フォルダ
+    MACRODIR:Path
+        測定マクロのフォルダ
+
+    """
 
     __TEMPDIR = PathObject()
 
@@ -101,7 +86,26 @@ class USER_VARIABLES:
 
 
 class SHARED_VARIABLES:
-    """ユーザー間で共通してもつ変数"""
+    """
+    ユーザー間で共通してもつ変数
+    各プロパティに対応するセッターが存在する
+    (注)扱うときは慎重に
+
+    Proprety
+    -----------
+    SETTINGDIR:Path
+        共有設定が保存されるフォルダの
+    TEMPDIR:Path
+        一時フォルダのパス
+    GPYM_SCRIPTSDIR:Path
+        GPYMのコードがあるフォルダのパス。
+        ユーザー側から触ることはまずない
+    GPYM_HOMEDIR:Path
+        GPYM本体の存在するフォルダ
+        ユーザー側から触ることはまずない
+    LOGDIR:Path
+        共有ログのあるフォルダ
+    """
 
     __SETTINGDIR = PathObject()
 
@@ -159,3 +163,31 @@ class SHARED_VARIABLES:
     @classmethod
     def set_GPYM_HOMEDIR(cls, value: Path):
         cls.__GPYM_HOMEDIR.value = value
+
+
+def init(home: Path):
+    """変数の初期化"""
+    # GPyMフォルダーのパス
+
+    SHARED_VARIABLES.set_GPYM_HOMEDIR(home)
+
+    # 共有TEMPフォルダーのパス
+    tempdir = home / "temp"
+    if not tempdir.is_dir():
+        tempdir.mkdir()
+    SHARED_VARIABLES.set_TEMPDIR(tempdir)
+
+    # 共有設定フォルダのパス
+    settingdir = home / "shared_settings"
+    if not settingdir.is_dir():
+        settingdir.mkdir()
+    SHARED_VARIABLES.set_SETTINGDIR(settingdir)
+
+    # scriptsフォルダーのパス
+    SHARED_VARIABLES.set_GPYM_SCRIPTSDIR(home / "scripts")
+
+    # logフォルダーのパス
+    logdir = home / "log"
+    if not logdir.is_dir():
+        logdir.mkdir()
+    SHARED_VARIABLES.set_LOGDIR(logdir)
